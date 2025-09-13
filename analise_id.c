@@ -12,7 +12,7 @@ int main() {
     }
 
     while((ch = fgetc(arquivo)) != EOF) {
-        printf("%c",ch)
+        printf("%c",ch);
     }
     return 0;
 }
