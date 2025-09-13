@@ -25,7 +25,7 @@ int main() {
 
     int estadoInicial = 0;
     int estadoAtual = estadoInicial;
-    int t[3][3] = {
+    int t[2][3] = {
         {1,    3,    3},
         {1,    1,    2}
     };
@@ -48,17 +48,15 @@ int main() {
     while((ch = fgetc(arquivo)) != EOF) {
         int caracterAtual = getCategoria(ch);
 
-        if (tam < 99) {
-            buffer[tam++] = ch;
-        }
-
         estadoAtual = t[estadoAtual][caracterAtual];
+
+        printf("%i",estadoAtual);
 
         if (estadoAtual == 3) {
             buffer[tam] = '\0';
             fputs(buffer, tokens);
             fputc(ch, tokens);
-
+            tam = 0;
         } else if ( estadoAtual == 2) {
             buffer[tam] = '\0';
             reservada = 0;
@@ -74,7 +72,7 @@ int main() {
                 fputs("ID", tokens);
             }
             fputc(ch, tokens);
-
+            tam = 0;
             estadoAtual = estadoInicial;
         } else {
             if (tam < 99) {
