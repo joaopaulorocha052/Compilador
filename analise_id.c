@@ -44,18 +44,18 @@ int main() {
         fclose(arquivo);
         return 1;
     }
+    printf("inicializando ...");
 
     while((ch = fgetc(arquivo)) != EOF) {
         int caracterAtual = getCategoria(ch);
 
         estadoAtual = t[estadoAtual][caracterAtual];
 
-        printf("%i",estadoAtual);
-
         if (estadoAtual == 3) {
             buffer[tam] = '\0';
             fputs(buffer, tokens);
             fputc(ch, tokens);
+            estadoAtual = estadoInicial;
             tam = 0;
         } else if ( estadoAtual == 2) {
             buffer[tam] = '\0';
@@ -79,7 +79,6 @@ int main() {
                 buffer[tam++] = ch;
             }
         }
-
 
         printf("%c",ch);
     }
