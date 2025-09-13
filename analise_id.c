@@ -5,6 +5,14 @@ int main() {
     FILE *arquivo;
     FILE *tokens;
     int ch;
+    const char *reservadas[] = {
+        "int","char","float","double","void",
+        "if","else","switch","case","default","for","while","do",
+        "break","continue","return","main",
+        "+", "-", "*", "/", "%", "=",
+        "==", "!=", "<", ">", "<=", ">=",
+        "&&","||","!"
+    };
 
     arquivo = fopen("sort.txt", "r");
     
