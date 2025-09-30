@@ -16,7 +16,7 @@ int main() {
     const char *reservadas[] = {
         "int","char","float","double","void",
         "if","else","switch","case","default","for","while","do",
-        "break","continue","return","main"
+        "break","continue","return"
     };
     int qntReservadas = sizeof(reservadas) / sizeof(reservadas[0]);
     int reservada = 0;

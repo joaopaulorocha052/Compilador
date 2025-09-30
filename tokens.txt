@@ -1,0 +1,45 @@
+int ID[ 10 ];
+
+int ID ( int ID[], int ID, int ID )
+{	int ID; int ID; int ID;
+	ID = ID;
+	ID = ID[ID];
+	ID = ID + 1;
+	while (ID < ID){
+		if (ID[ID] < ID){
+			ID = ID[ID];
+			ID = ID;
+		}
+		ID = ID + 1;
+	}
+	return ID;
+}
+
+void ID( int ID[], int ID, int ID)
+{	int ID; int ID;
+	ID = ID;
+	while (ID < ID-1){
+		int ID;
+		ID = ID(ID,ID,ID);
+		ID = ID[ID];
+		ID[ID] = ID[ID];
+		ID[ID] = ID;
+		ID = ID + 1;
+	}
+}
+
+void ID(void)
+{
+	int ID;
+	ID = 0;
+	while (ID < 10){
+		ID[ID] = ID();
+		ID = ID + 1;
+	}
+	ID(ID,0,10);
+	ID = 0;
+	while (ID < 10){
+		ID(ID[ID]);
+		ID = ID + 1;
+	}
+}
