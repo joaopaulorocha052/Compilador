@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 char tokenString[MAXTOKENLEN+1];
-typedef enum { IF , ELSE, WHILE, RETURN, INT, VOID, ASSIGN, EQ, LTE, LT, GTE, GT, DIFF, PLUS, MINUS, TIMES, OVER, LPAREN, RPAREN, COLON, SEMI, LCOLCH, RCOLCH, LCHAVE, RCHAVE, NUM, ID, FIM, ERROR} TokenType;
+typedef enum { IF , ELSE, WHILE, RETURN, INT, VOID, ASSIGN, EQ, LTE, LT, GTE, GT, DIFF, PLUS, MINUS, MULT, DIV, LPAREN, RPAREN, COLON, SEMI, LCOLCH, RCOLCH, LCHAVE, RCHAVE, NUM, ID, FIM, ERROR} TokenType;
 int lineno = 0;
 FILE * f_out;
 %}
@@ -32,8 +32,8 @@ whitespace  [ \t]+
 "!="            {return DIFF;}
 "+"             {return PLUS;}
 "-"             {return MINUS;}
-"*"             {return TIMES;}
-"/"             {return OVER;}
+"*"             {return MULT;}
+"/"             {return DIV;}
 "("             {return LPAREN;}
 ")"             {return RPAREN;}
 ","             {return COLON;}
@@ -44,10 +44,10 @@ whitespace  [ \t]+
 "}"             {return RCHAVE;}
 {number}        {return NUM;}
 {identifier}    {return ID;}
-{newline}       {lineno++; fprintf(f_out, "%s ", yytext);}
+{newline}       {lineno++; fprintf(f_out, "%s", yytext);}
 {whitespace}    {
                   /* Print para montar o arquivo, pode tirar depois */
-                  fprintf(f_out, "%s ", yytext);
+                  fprintf(f_out, "%s", yytext);
                 }
 <<EOF>>          return FIM;
 "/*"             { char c;
@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 
   while ((currentToken = yylex()) != FIM && currentToken != ERROR){
     strncpy(tokenString,yytext,MAXTOKENLEN);
-    fprintf(f_out, "%s ", printToken(currentToken));
+    fprintf(f_out, "%s", printToken(currentToken));
 
   }  
 
