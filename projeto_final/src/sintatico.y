@@ -13,74 +13,106 @@
     int ident_level = 0;
 %}
 %start command
-%token IF ELSE WHILE RETURN INT VOID ASSIGN EQ LTE LT GTE GT DIFF PLUS MINUS TIMES OVER LPAREN RPAREN COLON SEMI LCOLCH RCOLCH LCHAVE RCHAVE NUM ID FIM ERROR
+%token IF ELSE WHILE RETURN INT VOID ASSIGN EQ LTE LT GTE GT DIFF PLUS MINUS TIMES OVER LPAREN RPAREN COMMA SEMI LCOLCH RCOLCH LCHAVE RCHAVE NUM ID FIM ERROR
+%nonassoc ELSE
 
 %%
 
-command : fator {print_tree($1);} ;
+command : programa {printf("Bem sucedido");};
 
-fator : termo PLUS fator {
-                $$ = create_new_node('+', OP_NODE);
-                $$->children[0] = $1;
-                $$->children[1] = $3;
-        }
-        | termo MINUS fator {
-                $$ = create_new_node('-', OP_NODE);
-                $$->children[0] = $1;
-                $$->children[1] = $3;
-        } ;
-        | termo {$$ = $1;};
-termo : NUM {
+programa: declaracao-lista;
 
-                $$ = create_new_node(atoi(yytext), NUM_NODE);
+declaracao-lista: declaracao-lista declaracao
+                  | declaracao;
 
+declaracao: var-declaracao
+            | fun-declaracao;
 
-            } ;
+var-declaracao: tipo-especificador ID
+                | tipo-especificador ID LCOLCH NUM RCOLCH;
+
+tipo-especificador: INT 
+                    | VOID; 
+
+fun-declaracao: tipo-especificador ID LPAREN params RPAREN composto-decl;
+
+params: param-lista
+        | VOID;
+
+param-lista: param-lista COMMA param
+            | param;
+
+param:  tipo-especificador ID
+        | tipo-especificador ID LCOLCH RCOLCH;
+
+composto-decl: LCHAVE local-declaracoes statement-lista RCHAVE;
+
+local-declaracoes: local-declaracoes var-declaracao
+                   | ; 
+
+statement-lista: statement-lista statement
+                 | ;
+
+statement: expressao-decl
+           | composto-decl
+           | selecao-decl 
+           | iteracao-decl
+           | retorno-decl;
+
+expressao-decl: expressao SEMI
+                | SEMI ;
+
+selecao-decl: IF LPAREN expressao RPAREN statement
+              | IF LPAREN expressao RPAREN statement ELSE statement;
+
+iteracao-decl: WHILE LPAREN expressao RPAREN statement;
+
+retorno-decl: RETURN SEMI
+              | RETURN expressao SEMI;
+
+expressao: var ASSIGN expressao
+          | simples-expressao;
+
+var: ID
+     | ID LCOLCH expressao RCOLCH;
+
+simples-expressao: soma-expressao relacional soma-expressao
+                   | soma-expressao;
+
+relacional: LTE
+            | LT
+            | GT
+            | GTE
+            | EQ
+            | DIFF;
+
+soma-expressao: soma-expressao soma termo
+                | termo;
+
+soma: PLUS
+      | MINUS;
+      
+termo: termo mult fator
+       | fator;
+
+mult: TIMES
+      | OVER;
+      
+fator: LPAREN expressao RPAREN
+      | var
+      | ativacao
+      | NUM;
+
+ativacao: ID LPAREN args RPAREN;
+
+args: arg-lista
+     | ;
+
+arg-lista: arg-lista COMMA expressao
+           | expressao;
+
 
 %%
-
-void print_tree(struct ParseTree* tree){
-    /* while(tree != NULL){ */
-        ident_level = ident_level + 1;
-        if(tree == NULL) return;
-        for(int i=0; i<ident_level; i++) printf(" ");
-        if(tree->node_type == NUM_NODE){
-            printf("%d", tree->node_value.num_value);
-        }
-        else{
-            printf("%c", tree->node_value.op_value);
-            printf("\n");
-        }
-    
-    for(int i=0; i<2; i++){
-        print_tree(tree->children[i]);
-    }
-    ident_level--;
-    /* } */
-}
-
-struct ParseTree* create_new_node(int value, NodeType type){
-    struct ParseTree* node = (struct ParseTree*) malloc(sizeof(struct ParseTree));
-
-    if(node == NULL){
-        printf("ERRO\n");
-        return NULL;
-    }
-
-    if(type == NUM_NODE){
-        node->node_type = type;
-        node->node_value.num_value = value;
-        for(int i=0; i<2;i++) node->children[i] = NULL;
-
-    }
-    else{
-        node->node_type = type;
-        node->node_value.op_value = value;
-        for(int i=0; i<2;i++) node->children[i] = NULL;
-
-    }
-    return node;
-}
 
 int main(int argc, char* argv[]){
 

@@ -1,3 +1,4 @@
+%option noyywrap
 %{
 #include "lexer.h"
 #include "sintatico.tab.h"
@@ -34,7 +35,7 @@ whitespace  [ \t]+
 "/"             {return OVER;}
 "("             {return LPAREN;}
 ")"             {return RPAREN;}
-","             {return COLON;}
+","             {return COMMA;}
 ";"             {return SEMI;}
 "["             {return LCOLCH;}
 "]"             {return RCOLCH;}
@@ -83,7 +84,7 @@ const char* tokenToString(TokenType token) {
         case OVER:    return "OVER";
         case LPAREN:  return "LPAREN";
         case RPAREN:  return "RPAREN";
-        case COLON:   return "COLON";
+        case COMMA:   return "COMMA";
         case SEMI:    return "SEMI";
         case LCOLCH:  return "LCOLCH";
         case RCOLCH:  return "RCOLCH";
