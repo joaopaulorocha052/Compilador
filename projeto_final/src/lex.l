@@ -2,9 +2,12 @@
 %{
 #include "lexer.h"
 #include "sintatico.tab.h"
+#include <string.h>
 extern YYSTYPE yylval;
 FILE * f_out;
 int lineno = 0;
+
+
 %}
 
 digit       [0-9]
@@ -41,8 +44,8 @@ whitespace  [ \t]+
 "]"             {return RCOLCH;}
 "{"             {return LCHAVE;}
 "}"             {return RCHAVE;}
-{number}        {yylval = atoi(yytext);return NUM;}
-{identifier}    {return ID;}
+{number}        {token_num = atoi(yytext);return NUM;}
+{identifier}    {token_string = strdup(yytext); return ID;}
 {newline}       {lineno++;}
 {whitespace}    {
                   /* Ignorar whitespace */
