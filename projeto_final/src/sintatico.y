@@ -1,4 +1,8 @@
 %{
+    /**********
+        João Paulo Paixão Rocha - 156408
+        Maria Clara Couto Lorena - 163941
+    ************/
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
@@ -40,7 +44,6 @@ declaracao: var-declaracao { $$ = $1;};
             | fun-declaracao {$$ = $1;};
 
 var-declaracao: tipo-especificador  ID SEMI {
-
                 $$ = create_var_node(create_id_node(token_string), NULL);
                 }
                 | tipo-especificador ID LCOLCH NUM RCOLCH SEMI {
@@ -50,11 +53,11 @@ var-declaracao: tipo-especificador  ID SEMI {
 tipo-especificador: INT 
                     | VOID; 
 
-fun-declaracao: tipo-especificador ID {temp_name_buffer = strdup(token_string);} LPAREN params RPAREN composto-decl{
-                    $$ = create_func_node(create_id_node(temp_name_buffer), $5, $7);
+fun-declaracao: tipo-especificador ID {$2 = create_id_node(token_string);} LPAREN params RPAREN composto-decl{
+                    $$ = create_func_node($2, $5, $7);
                 };
 
-params: param-lista {$$ = $1;}
+params: param-lista {$$ = create_param_node($1);}
         | VOID;
 
 param-lista: param-lista COMMA param {
@@ -66,91 +69,126 @@ param-lista: param-lista COMMA param {
             | param{$$ = $1;};
 
 param:  tipo-especificador ID {$$ = create_var_node(create_id_node(token_string), NULL);}
-        | tipo-especificador ID LCOLCH RCOLCH{$$ = create_var_node(create_id_node(token_string), create_num_node(token_num));};
+        | tipo-especificador ID LCOLCH RCOLCH{$$ = create_var_node(create_id_node(token_string), NULL);}; // OLHAR O VETOR DEPOIS
 
 composto-decl: LCHAVE local-declaracoes statement-lista RCHAVE{
-        // $2->sibling = $3;
-        // $$->children[0] = $2;
+
+        $$ = create_decl_list_node($2, $3);
     };
 
 local-declaracoes: local-declaracoes var-declaracao{
-                // struct ParseTree* temp = $1;
-                // while(temp->sibling != NULL) temp = temp->sibling;
-
-                // temp->sibling = $2;
-
-                // $$ = $1;
+                    struct ParseTree* temp = $1;
+                    if(temp == NULL){
+                        $$ = $2;
+                    }
+                    else{ 
+                        while(temp->sibling != NULL) temp = temp->sibling;
+                        temp->sibling = $2;
+                        $$ = $1;
+                    }
                 }
-                   | {};
+                | /* VAZIO */ {$$ = NULL;};
 
-statement-lista: statement-lista statement
-                 | {};
+statement-lista: statement-lista statement {
+                    struct ParseTree* temp = $1;
+                    if(temp == NULL){
+                        $$ = $2;
+                    }
+                    else{ 
+                        while(temp->sibling != NULL) temp = temp->sibling;
+                        temp->sibling = $2;
+                        $$ = $1;
+                    }
+                }
+                 | /* VAZIO */  {$$ = NULL;};
 
-statement: expressao-decl
-           | composto-decl
-           | selecao-decl 
-           | iteracao-decl
-           | retorno-decl;
+statement: expressao-decl  {$$ = $1;}
+           | composto-decl {$$ = $1;}
+           | selecao-decl  {$$ = $1;}
+           | iteracao-decl {$$ = $1;}
+           | retorno-decl  {$$ = $1;};
 
-expressao-decl: expressao SEMI
+expressao-decl: expressao SEMI {$$ = $1;}
                 | SEMI ;
 
-selecao-decl: IF LPAREN expressao RPAREN statement
-              | IF LPAREN expressao RPAREN statement ELSE statement;
+selecao-decl: IF LPAREN expressao RPAREN statement {
+                    $$ =create_if_node($3, $5, NULL);
+                }
+              | IF LPAREN expressao RPAREN statement ELSE statement {
+                    $$ = create_if_node($3, $5, $7);
+                };
 
-iteracao-decl: WHILE LPAREN expressao RPAREN statement;
+iteracao-decl: WHILE LPAREN expressao RPAREN statement{
+                    $$ = create_while_node($3, $5);
+                };
 
-retorno-decl: RETURN SEMI
-              | RETURN expressao SEMI;
+retorno-decl: RETURN SEMI { $$ = create_return_node(NULL); }
+              | RETURN expressao SEMI { $$ = create_return_node($2);};
 
-expressao: var ASSIGN expressao
-          | simples-expressao;
+expressao: var ASSIGN expressao {
+                $$ = create_assign_node($1, $3);
+            }
+          | simples-expressao { $$ = $1; };
 
 var: ID {
-            printf("\nPassei Aqui\n");
-            $$ = create_new_node(0, ID_NODE, yytext, NULL, NULL, NULL);
+            $$ = create_var_node(create_id_node(token_string), NULL);
+    }
+     | ID {temp_name_buffer = strdup(token_string);} LCOLCH expressao RCOLCH {
+        $$ = create_var_node(create_id_node(temp_name_buffer), $4);
+     };
+
+simples-expressao: soma-expressao relacional soma-expressao {
+                        $$ = create_op_node($1, $2, $3);
+                    }
+                   | soma-expressao { $$ = $1; };
+
+relacional:   LTE  {$$ = create_op_terminal(LTE);}
+            | LT   {$$ = create_op_terminal(LT);}
+            | GT   {$$ = create_op_terminal(GT);}
+            | GTE  {$$ = create_op_terminal(GTE);}
+            | EQ   {$$ = create_op_terminal(EQ);}
+            | DIFF {$$ = create_op_terminal(DIFF);};
+
+soma-expressao: soma-expressao soma termo {
+                    $$ = create_op_node($1, $2, $3);
+                }
+                | termo { $$ = $1; };
+
+soma: PLUS {$$ = create_op_terminal(PLUS);}
+      | MINUS {$$ = create_op_terminal(MINUS);};
+      
+termo: termo mult fator {
+            $$ = create_op_node($1, $2, $3);
         }
-     | ID LCOLCH expressao RCOLCH;
+       | fator { $$ = $1; };
 
-simples-expressao: soma-expressao relacional soma-expressao
-                   | soma-expressao;
-
-relacional: LTE
-            | LT
-            | GT
-            | GTE
-            | EQ
-            | DIFF;
-
-soma-expressao: soma-expressao soma termo
-                | termo;
-
-soma: PLUS
-      | MINUS;
+mult: TIMES {$$ = create_op_terminal(TIMES);}
+      | OVER {$$ = create_op_terminal(OVER);};
       
-termo: termo mult fator
-       | fator;
+fator: LPAREN expressao RPAREN { $$ = $2; }
+      | var { $$ = $1; }
+      | ativacao { $$ = $1; }
+      | NUM { $$ = create_num_node(token_num); }; 
 
-mult: TIMES
-      | OVER;
-      
-fator: LPAREN expressao RPAREN
-      | var
-      | ativacao
-      | NUM;
+ativacao: ID {$1 = create_id_node(token_string);} LPAREN args RPAREN {
+            $$ = create_func_ativacao($1, $4);
+        };
 
-ativacao: ID LPAREN args RPAREN;
+args: arg-lista { $$ = create_args_node($1); }
+     | {$$ = NULL;};
 
-args: arg-lista
-     | ;
+arg-lista: arg-lista COMMA expressao {
+                struct ParseTree* temp = $1;
+                while(temp->sibling != NULL) temp = temp->sibling;
 
-arg-lista: arg-lista COMMA expressao
-           | expressao;
+                temp->sibling = $3;
+            }
+           | expressao { $$ = $1; };
 
 
 %%
 
-
+//RETURN_NODE, IF_NODE, WHILE_NODE
 void print_tree(struct ParseTree* tree, int level){
     
     if(tree == NULL) return;
@@ -158,23 +196,86 @@ void print_tree(struct ParseTree* tree, int level){
     int next_level = level;
     for(int i=0; i<level; i++) printf("\t");
 
+    char str[3];
     switch(tree->node_type){
+        case OP_TERMINAL_NODE:
+            // trocar depois por printToken
+            switch(tree->node_value.op_value){
+                case PLUS:
+                    strcpy(str, "+");
+                    break;
+                case MINUS:
+                    strcpy(str, "-");
+                    break;
+                case TIMES:
+                    strcpy(str, "*");
+                    break;
+                case OVER:
+                    strcpy(str, "/");
+                    break;
+                case LTE :
+                    strcpy(str, "<=");
+                    break;
+                case LT  :
+                    strcpy(str, "<");
+                    break;
+                case GT  :
+                    strcpy(str, ">");
+                    break;
+                case GTE :
+                    strcpy(str, ">=");
+                    break;
+                case EQ  :
+                    strcpy(str, "==");
+                    break;
+                case DIFF:
+                    strcpy(str, "!=");
+                    break;
+                default:
+                    printf("Operação não reconhecida!!!");
+                    break;
+            }
+            // trocar depois por printToken
+            printf("OP_TERMINAL_NODE: %s\n", str);
+            break;
+        case OP_NODE:
+            printf("OP_NODE\n");
+            break;
         case NUM_NODE:
             printf("NUM_NODE: %d\n", tree->node_value.num_value);
             break;
         case VAR_NODE:
             printf("VAR_NODE\n");
             break;
-    
+        case ARGS_NODE:
+            printf("ARGS_NODE\n");
+            break;
         case ID_NODE:
             printf("ID_NODE: %s\n", tree->node_value.id_name);
             break;
-
-        case OP_NODE:
-            printf("OP_NODE: %c\n", tree->node_value.op_value);
+        case FUNC_PARAM_NODE:
+            printf("FUNC_PARAM_NODE\n");
             break;
         case FUNC_NODE:
             printf("FUNC_NODE\n");
+            break;
+        case DECL_LIST_NODE:
+            printf("DECL_LIST_NODE\n");
+            break;
+        case ASSIGN_NODE:
+            printf("ASSIGN_NODE:\n");
+            break;
+        case FUNC_ACTV_NODE:
+            printf("FUNC_ACTV_NODE:\n");
+            break;
+        case RETURN_NODE:
+            printf("RETURN_NODE:\n");
+            break;
+        case IF_NODE:
+            printf("IF_NODE:\n");
+            break;
+        case WHILE_NODE:
+            printf("WHILE_NODE:\n");
             break;
         default:
             printf("Unknown Node: %d\n", tree->node_type);
@@ -189,16 +290,6 @@ void print_tree(struct ParseTree* tree, int level){
     print_tree(tree->sibling, level);
 
     free_node(tree);
-}
-
-struct ParseTree* create_func_node(struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* last_child){
-    struct ParseTree* node = allocate_node(FUNC_NODE);
-
-    node->children[0] = first_child;
-    node->children[1] = second_child;
-    node->children[2] = last_child;
-
-    return node;
 }
 
 static void free_node(struct ParseTree* node){
@@ -221,6 +312,34 @@ static struct ParseTree* allocate_node(NodeType type){
     return node;
 
 }
+
+struct ParseTree* create_op_terminal(TokenType op) {
+    struct ParseTree* node = allocate_node(OP_TERMINAL_NODE);
+
+    node->node_value.op_value = op;
+
+    return node;
+}
+
+struct ParseTree* create_func_node(struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* last_child){
+    struct ParseTree* node = allocate_node(FUNC_NODE);
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+    node->children[2] = last_child;
+
+    return node;
+}
+
+struct ParseTree* create_func_ativacao(struct ParseTree* first_child, struct ParseTree* second_child){
+    struct ParseTree* node = allocate_node(FUNC_ACTV_NODE);
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+
+    return node;
+}
+
 
 struct ParseTree* create_num_node(int value){
     struct ParseTree* node = allocate_node(NUM_NODE);
@@ -247,41 +366,87 @@ struct ParseTree* create_var_node(struct ParseTree* first_child, struct ParseTre
 
     return node;
 }
-struct ParseTree* create_new_node(int value, NodeType type, char* name, struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* last_child){
-    struct ParseTree* node = (struct ParseTree*) malloc(sizeof(struct ParseTree));
 
-    if(node == NULL){
-        printf("ERRO\n");
-        return NULL;
-    }
+struct ParseTree* create_param_node(struct ParseTree* first_child){
+    // first child - variable id | second child - vector size (NULL if integer)
+    struct ParseTree* node = allocate_node(FUNC_PARAM_NODE);
 
-    if(type == NUM_NODE){
-        node->node_type = type;
-        node->node_value.num_value = value;
-        for(int i=0; i<2;i++) node->children[i] = NULL;
+    node->children[0] = first_child;
 
-    }
-    else if(type == VAR_NODE){
-        node->node_type = type;
-        for(int i=1; i<NUM_CHILDREN;i++) node->children[i] = NULL;
-        node->children[0] = first_child;
-        node->children[1] = second_child;
-        
-    }
-    else if(type == ID_NODE){
-        node->node_type = type;
-        node->node_value.id_name = strdup(name);
-        for(int i=0; i<NUM_CHILDREN;i++) node->children[i] = NULL;
-    }
-    
-    else{
-        node->node_type = type;
-        node->node_value.op_value = value;
-        for(int i=0; i<NUM_CHILDREN;i++) node->children[i] = NULL;
-
-    }
     return node;
 }
+
+struct ParseTree* create_args_node(struct ParseTree* first_child){
+    // first child - variable id | second child - vector size (NULL if integer)
+    struct ParseTree* node = allocate_node(ARGS_NODE);
+
+    node->children[0] = first_child;
+
+    return node;
+}
+
+struct ParseTree* create_decl_list_node(struct ParseTree* first_child, struct ParseTree* second_child){
+    struct ParseTree* node = allocate_node(DECL_LIST_NODE);
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+
+    return node;
+}
+struct ParseTree* create_op_node(struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* last_child){
+    // first child - op | second child 
+    struct ParseTree* node = allocate_node(OP_NODE);
+    
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+    node->children[2] = last_child;
+
+    return node;
+}
+
+struct ParseTree* create_return_node(struct ParseTree* first_child){
+    // first child - expressao
+    struct ParseTree* node = allocate_node(RETURN_NODE);
+
+    node->children[0] = first_child;
+
+    return node;
+}
+
+struct ParseTree* create_if_node(struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* last_child){
+    struct ParseTree* node = allocate_node(IF_NODE);
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+    node->children[2] = last_child;
+
+    return node;
+}
+
+struct ParseTree* create_while_node(struct ParseTree* first_child, struct ParseTree* second_child){
+    // first child - expressao | second child - statement
+    struct ParseTree* node = allocate_node(WHILE_NODE);
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+
+    return node;
+}
+
+struct ParseTree* create_assign_node(struct ParseTree* first_child, struct ParseTree* second_child){
+    // first child - variable id | second child - expressão
+    struct ParseTree* node = allocate_node(ASSIGN_NODE);
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+
+    return node;
+}
+
+
+
+
 int main(int argc, char* argv[]){
     if(argc < 2){
         printf("ERRO\n");
@@ -290,7 +455,12 @@ int main(int argc, char* argv[]){
     FILE *file = fopen(argv[1], "r");
     yyin = file;
 
-    return yyparse();
+    yyparse();
+
+    fclose(file);
+    free(temp_name_buffer);
+    free(token_string);
+    return 0;
 }
 
 void yyerror(char* s){
