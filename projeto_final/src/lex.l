@@ -62,6 +62,7 @@ whitespace  [ \t]+
                   } while (c != EOF);
                   return FIM;
                 }
+<<EOF>>         {return 0;}
 .               {return ERROR;}
 
 %%

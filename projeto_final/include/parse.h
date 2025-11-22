@@ -3,6 +3,8 @@
 
 #define  NUM_CHILDREN 3
 
+#include "lexer.h"
+
 
 typedef enum {OP_TERMINAL_NODE, OP_NODE, NUM_NODE, VAR_NODE, ID_NODE, FUNC_NODE, FUNC_PARAM_NODE, DECL_LIST_NODE, UNKNOWN_NODE, ASSIGN_NODE, FUNC_ACTV_NODE, RETURN_NODE, IF_NODE, WHILE_NODE, ARGS_NODE} NodeType;
 typedef enum {INT_EXP, VOID_EXP} ExpType;
@@ -23,9 +25,12 @@ struct ParseTree
     
 };
 
+#define YYSTYPE struct ParseTree*
+
 
 struct ParseTree* SyntaticTree;
 void print_tree(struct ParseTree* tree, int level) ;
+void print_tree_prefix(struct ParseTree* tree, int level, char* prefix);
 static struct ParseTree* allocate_node(NodeType type);
 static void free_node(struct ParseTree* node);
 

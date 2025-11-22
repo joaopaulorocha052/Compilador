@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "lexer.h"
+#include "sintatico.tab.h"
 #include "../get_opt/options.h"
 
 
@@ -8,7 +9,9 @@ extern int yylex(void);
 extern char* yytext;
 extern FILE * yyin;
 
-int flex_flag;
+int flex_flag = 0;
+int debug_flag = 0;
+int lex_stop_flag = 0;
 
 TokenType (*lexer)(void);
 
@@ -24,7 +27,7 @@ int main(int argc, char *argv[]){
     FILE * file;
 
     if(argc < 2) {
-        printf("Uso do programa: %s <arquivo_de_leitura> <-l -> uso do flex>\n", argv[0]);
+        printf("Uso do programa: %s <arquivo_de_leitura> <-f uso do flex > < -d debug >\n", argv[0]);
         return -1;
     }
     options(argc, argv);
@@ -35,12 +38,17 @@ int main(int argc, char *argv[]){
     file = fopen(argv[1], "r");
     yyin = file;
 
-    while((token = lexer()) != FIM){
-        currentToken.type = token;
-        snprintf(currentToken.lexeme, MAXTOKENLEN + 1, "%s", yytext);
-        currentToken.line = lineno;
-        printf("Token: %s, Lexeme: %s, Linha: %d\n", tokenToString(currentToken.type), currentToken.lexeme, currentToken.line);
-        
+    if(lex_stop_flag){
+        while((token = lexer()) != 0){
+            currentToken.type = token;
+            snprintf(currentToken.lexeme, MAXTOKENLEN + 1, "%s", yytext);
+            currentToken.line = lineno;
+            printf("Token: %s, Lexeme: %s, Linha: %d\n", tokenToString(currentToken.type), currentToken.lexeme, currentToken.line);
+            
+        }
+    }
+    else{
+        yyparse();
     }
 
     fclose(file);

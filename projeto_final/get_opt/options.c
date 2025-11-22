@@ -11,12 +11,17 @@ int check_dash_option(char str[]){
 void resolve_option(char option, char* value ){
     switch (option)
     {
-        case 'l':
-            printf("Utilizando o Flex para análise Léxica\n");
+        case 'f':
+            printf("Utilizando o Flex para Análise Léxica\n");
             flex_flag = 1;
             break;
+        case 'l':
+            printf("Parando após a análise Léxica\n");
+            lex_stop_flag = 1;
+            break;
         case 'd':
-            printf("Olá, estou aqui\n");
+            printf("Modo Debug Ativado!\n");
+            flex_flag = 1;
             break;
         default:
             printf("Opção desconhecida: -%c\n", option);

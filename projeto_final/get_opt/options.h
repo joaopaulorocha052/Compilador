@@ -2,6 +2,8 @@
 #define OPTIONS_H
 
 extern int flex_flag;
+extern int debug_flag;
+extern int lex_stop_flag;
 
 int check_dash_option(char str[]);
 
