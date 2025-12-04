@@ -2,16 +2,15 @@
 #define PARSE_H
 
 #define  NUM_CHILDREN 3
+#include "lexer.h"
 
-
-typedef enum {OP_TERMINAL_NODE, OP_NODE, NUM_NODE, VAR_NODE, ID_NODE, FUNC_NODE, FUNC_PARAM_NODE, DECL_LIST_NODE, UNKNOWN_NODE, ASSIGN_NODE, FUNC_ACTV_NODE, RETURN_NODE, IF_NODE, WHILE_NODE, ARGS_NODE} NodeType;
-typedef enum {INT_EXP, VOID_EXP} ExpType;
+typedef enum {ERROR_NODE, OP_TERMINAL_NODE, OP_NODE, NUM_NODE, VAR_NODE, ID_NODE, FUNC_NODE, FUNC_PARAM_NODE, DECL_LIST_NODE, UNKNOWN_NODE, ASSIGN_NODE, FUNC_ACTV_NODE, RETURN_NODE, IF_NODE, WHILE_NODE, ARGS_NODE} NodeType;
 // Estrutura da árvore
 
 struct ParseTree
 {
     NodeType node_type;
-    ExpType exp_type;
+    int line_num;
     union
     {
         int op_value; // TokenType
@@ -28,7 +27,8 @@ struct ParseTree* SyntaticTree;
 void print_tree(struct ParseTree* tree, int level) ;
 static struct ParseTree* allocate_node(NodeType type);
 static void free_node(struct ParseTree* node);
-
+struct ParseTree* call_error();
+struct ParseTree* create_error_node();
 struct ParseTree* create_op_terminal(TokenType op);
 struct ParseTree* create_op_node(struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* last_child);
 struct ParseTree* create_num_node(int value);

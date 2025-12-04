@@ -22,8 +22,8 @@ struct Token {
 
 
 extern int lineno;
-char* token_string;
-int token_num;
+extern char* token_string;
+extern int token_num;
 
 // Function to print the token name
 const char* tokenToString(TokenType token);

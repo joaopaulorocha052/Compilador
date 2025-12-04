@@ -5,7 +5,9 @@
 #include <string.h>
 extern YYSTYPE yylval;
 FILE * f_out;
-int lineno = 0;
+int lineno = 1;
+char* token_string;
+int token_num;
 
 
 %}
@@ -45,7 +47,11 @@ whitespace  [ \t]+
 "{"             {return LCHAVE;}
 "}"             {return RCHAVE;}
 {number}        {token_num = atoi(yytext);return NUM;}
-{identifier}    {token_string = strdup(yytext); return ID;}
+{identifier}    {
+
+                  token_string = strdup(yytext); 
+                  return ID;
+                  }
 {newline}       {lineno++;}
 {whitespace}    {
                   /* Ignorar whitespace */
@@ -62,7 +68,7 @@ whitespace  [ \t]+
                   } while (c != EOF);
                   return FIM;
                 }
-.               {return ERROR;}
+.               {printf("ERRO LÉXICO: lexema %s não identificado. LINHA: %d\n", yytext, lineno);return ERROR;}
 
 %%
 

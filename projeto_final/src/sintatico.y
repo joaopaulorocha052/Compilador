@@ -7,8 +7,14 @@
     #include <stdlib.h>
     #include <string.h>
     #include "lexer.h"
-    #include "parse.h"    
+    #include "parse.h"   
     #define YYSTYPE struct ParseTree*
+    #define SCOPE_NAME_SIZE 100
+    #include "symbol_table.h"
+
+    int error_num = 0;
+    int last_syntax_error_line = -1;
+
     void yyerror(char* s);
 
     extern int yylex(void);
@@ -18,7 +24,10 @@
 
     int ident_level = 0;
 
+    char scope[SCOPE_NAME_SIZE] = "global";
     char* temp_name_buffer;
+
+    HashTable* table;
 
 
 %}
@@ -28,7 +37,14 @@
 
 %%
 
-command : programa {$$ = $1;print_tree($$, 0);printf("\nBem sucedido\n");};
+command : programa {$$ = $1;
+                    if(error_num == 0){
+                        
+                        print_tree($$, 0);
+                        print_table(table);
+                        printf("\nBem sucedido\n");
+                    }
+                    };
 
 programa: declaracao-lista {$$ = $1;};
 
@@ -44,17 +60,57 @@ declaracao: var-declaracao { $$ = $1;};
             | fun-declaracao {$$ = $1;};
 
 var-declaracao: tipo-especificador  ID SEMI {
-                $$ = create_var_node(create_id_node(token_string), NULL);
+                    $$ = create_var_node(create_id_node(token_string), NULL);
+                    if($1->node_value.op_value == VOID){
+                        insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, VOID_EXP);
+                    } else {
+                        insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, INT_EXP);
+                    }
                 }
                 | tipo-especificador ID LCOLCH NUM RCOLCH SEMI {
                     $$ = create_var_node(create_id_node(token_string), create_num_node(token_num));
-                };
+                    if($1->node_value.op_value == VOID){
+                        insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, VOID_EXP);
+                    } else {
+                        insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, INT_EXP);
+                    }
+                }
+                | ERROR { error_num++;$$ = create_error_node();}
+                /* | error {temp_name_buffer = strdup(token_string);} token_qualquer {
+                    printf("ERRO SINTÁTICO: token %s. LINHA: %d\n", temp_name_buffer, lineno);
+                    error_num++; 
+                    yyerrok; 
+                    yyclearin;
+                    $$ = create_error_node();
+                }; */
+                |error {
+                    // MESMA LOGICA AQUI
+                    if (lineno > last_syntax_error_line) {
+                        printf("ERRO SINTÁTICO: token %s. LINHA: %d\n", yytext, lineno);
+                        last_syntax_error_line = lineno;
+                        error_num++;
+                    }
+                    yyclearin; // Descarta token
+                    yyerrok;   // Continua parse
+                    $$ = NULL;
+                }
 
-tipo-especificador: INT 
-                    | VOID; 
+token_qualquer: SEMI | RCHAVE | RCOLCH | RPAREN | COMMA;
+tipo-especificador: INT {$$ = create_op_terminal(INT);}
+                    | VOID {$$ = create_op_terminal(VOID);}; 
 
-fun-declaracao: tipo-especificador ID {$2 = create_id_node(token_string);} LPAREN params RPAREN composto-decl{
+fun-declaracao: tipo-especificador ID {
+                    $2 = create_id_node(token_string);
+                    if($1->node_value.op_value == VOID){
+                        insert_item(table, $2->node_value.id_name, "global", $2->line_num, FUNC, VOID_EXP);
+                    } else {
+                        insert_item(table, $2->node_value.id_name, "global", $2->line_num, FUNC, INT_EXP);
+                    }
+                    strcpy(scope, $2->node_value.id_name);
+                } 
+                    LPAREN params RPAREN composto-decl{
                     $$ = create_func_node($2, $5, $7);
+                    strcpy(scope,"global");
                 };
 
 params: param-lista {$$ = create_param_node($1);}
@@ -68,8 +124,20 @@ param-lista: param-lista COMMA param {
             }
             | param{$$ = $1;};
 
-param:  tipo-especificador ID {$$ = create_var_node(create_id_node(token_string), NULL);}
-        | tipo-especificador ID LCOLCH RCOLCH{$$ = create_var_node(create_id_node(token_string), NULL);}; // OLHAR O VETOR DEPOIS
+param:  tipo-especificador ID {$$ = create_var_node(create_id_node(token_string), NULL);
+            if($1->node_value.op_value == VOID){
+                insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, VOID_EXP);
+            } else {
+                insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, INT_EXP);
+            }
+        }
+        | tipo-especificador ID LCOLCH RCOLCH{$$ = create_var_node(create_id_node(token_string), NULL);
+            if($1->node_value.op_value == VOID){
+                insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, VOID_EXP);
+            } else {
+                insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, INT_EXP);
+            }
+        };
 
 composto-decl: LCHAVE local-declaracoes statement-lista RCHAVE{
 
@@ -87,7 +155,9 @@ local-declaracoes: local-declaracoes var-declaracao{
                         $$ = $1;
                     }
                 }
-                | /* VAZIO */ {$$ = NULL;};
+                | /* VAZIO */ {$$ = NULL;}
+                
+                ;
 
 statement-lista: statement-lista statement {
                     struct ParseTree* temp = $1;
@@ -106,13 +176,32 @@ statement: expressao-decl  {$$ = $1;}
            | composto-decl {$$ = $1;}
            | selecao-decl  {$$ = $1;}
            | iteracao-decl {$$ = $1;}
-           | retorno-decl  {$$ = $1;};
+           | retorno-decl  {$$ = $1;}
+           | ERROR { error_num++;$$ = create_error_node();}
+           /* | error {temp_name_buffer = strdup(token_string);} token_qualquer {
+                    printf("ERRO SINTÁTICO: token %s. LINHA: %d\n", temp_name_buffer, lineno);
+                    error_num++; 
+                    yyerrok; 
+                    yyclearin;
+                    $$ = create_error_node();
+                }; */
+                |error {
+                    // MESMA LOGICA AQUI
+                    if (lineno > last_syntax_error_line) {
+                        printf("ERRO SINTÁTICO: token %s. LINHA: %d\n", yytext, lineno);
+                        last_syntax_error_line = lineno;
+                        error_num++;
+                    }
+                    yyclearin; // Descarta token
+                    yyerrok;   // Continua parse
+                    $$ = NULL;
+                }
 
 expressao-decl: expressao SEMI {$$ = $1;}
                 | SEMI ;
 
 selecao-decl: IF LPAREN expressao RPAREN statement {
-                    $$ =create_if_node($3, $5, NULL);
+                    $$ = create_if_node($3, $5, NULL);
                 }
               | IF LPAREN expressao RPAREN statement ELSE statement {
                     $$ = create_if_node($3, $5, $7);
@@ -131,10 +220,34 @@ expressao: var ASSIGN expressao {
           | simples-expressao { $$ = $1; };
 
 var: ID {
-            $$ = create_var_node(create_id_node(token_string), NULL);
+        $$ = create_var_node(create_id_node(token_string), NULL);
+        HashItem* item = search_item(table,  $$->children[0]->node_value.id_name, scope);
+        if(item == NULL){
+            item = search_item(table,  $$->children[0]->node_value.id_name, "global");
+            if(item == NULL){
+                printf("\nVariável Não Declarada: %s - Linha: %d\n\n", $$->children[0]->node_value.id_name, $$->children[0]->line_num );
+            } else {
+                insert_line(item, $$->children[0]->line_num);
+            }
+        }
+        else {
+            insert_line(item, $$->children[0]->line_num);
+        }
     }
      | ID {temp_name_buffer = strdup(token_string);} LCOLCH expressao RCOLCH {
         $$ = create_var_node(create_id_node(temp_name_buffer), $4);
+        HashItem* item = search_item(table,  $$->children[0]->node_value.id_name, scope);
+        if(item == NULL){
+            item = search_item(table,  $$->children[0]->node_value.id_name, "global");
+            if(item == NULL){
+                printf("\nVariável Não Declarada: %s - Linha: %d\n\n", $$->children[0]->node_value.id_name, $$->children[0]->line_num );
+            } else {
+                insert_line(item, $$->children[0]->line_num);
+            }
+        }
+        else {
+            insert_line(item, $$->children[0]->line_num);
+        }
      };
 
 simples-expressao: soma-expressao relacional soma-expressao {
@@ -168,9 +281,37 @@ mult: TIMES {$$ = create_op_terminal(TIMES);}
 fator: LPAREN expressao RPAREN { $$ = $2; }
       | var { $$ = $1; }
       | ativacao { $$ = $1; }
-      | NUM { $$ = create_num_node(token_num); }; 
+      | NUM { $$ = create_num_node(token_num);}
+      | ERROR { $$ = create_error_node(); error_num++;}
+      /* | error {temp_name_buffer = strdup(token_string);} token_qualquer {
+                    printf("ERRO SINTÁTICO: token %s. LINHA: %d\n", temp_name_buffer, lineno);
+                    error_num++; 
+                    yyerrok; 
+                    yyclearin;
+                    $$ = create_error_node();
+                }; */
+                |error {
+                    // MESMA LOGICA AQUI
+                    if (lineno > last_syntax_error_line) {
+                        printf("ERRO SINTÁTICO: token %s. LINHA: %d\n", yytext, lineno);
+                        last_syntax_error_line = lineno;
+                        error_num++;
+                    }
+                    yyclearin; // Descarta token
+                    yyerrok;   // Continua parse
+                    $$ = NULL;
+                }
 
-ativacao: ID {$1 = create_id_node(token_string);} LPAREN args RPAREN {
+
+ativacao: ID {
+            $1 = create_id_node(token_string);
+            HashItem* item = search_item(table, $1->node_value.id_name, "global");
+            if(item == NULL)
+                printf("\n\nFunção Não Declarada: %s - Linha: %d\n\n", $1->node_value.id_name, $1->line_num );
+            else {
+                insert_line(item, $1->line_num);
+            }
+            } LPAREN args RPAREN {
             $$ = create_func_ativacao($1, $4);
         };
 
@@ -315,9 +456,17 @@ static struct ParseTree* allocate_node(NodeType type){
 
 struct ParseTree* create_op_terminal(TokenType op) {
     struct ParseTree* node = allocate_node(OP_TERMINAL_NODE);
-
+    if(node == NULL){
+        printf("Erro ao alocar memória para o nó %d\n", op);
+        return NULL;
+    }
     node->node_value.op_value = op;
 
+    return node;
+}
+
+struct ParseTree* create_error_node() {
+    struct ParseTree* node = allocate_node(ERROR_NODE);
     return node;
 }
 
@@ -353,6 +502,7 @@ struct ParseTree* create_id_node(char* id_name){
     struct ParseTree* node = allocate_node(ID_NODE);
 
     node->node_value.id_name = strdup(id_name);
+    node->line_num = lineno;
 
     return node;
 }
@@ -455,6 +605,8 @@ int main(int argc, char* argv[]){
     FILE *file = fopen(argv[1], "r");
     yyin = file;
 
+    table = create_table();
+
     yyparse();
 
     fclose(file);
@@ -464,6 +616,9 @@ int main(int argc, char* argv[]){
 }
 
 void yyerror(char* s){
-    extern char* yytext;
-    printf("%s (%s) linha: %d\n", s, yytext, lineno);
+    /* extern char* yytext;
+    error_num++;
+    printf("%c\n", yychar);
+    printf("%s (%s) linha: %d\n", s, yytext, lineno); */
+    return;
 }
