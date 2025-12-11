@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "symbol_table.h"
+extern int error_num;
 
 static int hash(char* key){
 
@@ -90,7 +91,7 @@ void insert_line(HashItem* item, int num){
 
     return;
 }
-static HashItem* create_item(char* value, char* scope, ExpKind kind, ExpType type){
+static HashItem* create_item(char* value, char* scope, ExpKind kind, ExpType type, int qnt){
     HashItem* temp = (HashItem*) malloc(sizeof(HashItem));
     if(temp == NULL) return NULL;
     temp->value = strdup(value);
@@ -99,6 +100,7 @@ static HashItem* create_item(char* value, char* scope, ExpKind kind, ExpType typ
     temp->lines = NULL;
     temp->kind = kind;
     temp->type = type;
+    temp->qnt_param = qnt;
 
     return temp;
 }
@@ -110,20 +112,35 @@ HashTable* create_table(){
     
     for(int i=0; i<HASH_TABLE_SIZE; i++) temp->items[i] = NULL;
 
-    insert_item(temp, "input", "global", 0, FUNC, VOID_EXP);
-    insert_item(temp, "output", "global", 0, FUNC, VOID_EXP);
+    insert_item(temp, "input", "global", 0, FUNC, INT_EXP, 0);
+    insert_item(temp, "output", "global", 0, FUNC, VOID_EXP, 1);
 
     return temp;
 }
 
-void insert_item(HashTable* table, char* value, char* scope, int line_num, ExpKind kind, ExpType type){
+void insert_item(HashTable* table, char* value, char* scope, int line_num, ExpKind kind, ExpType type, int qnt){
 
-    HashItem* item = create_item(value, scope, kind, type);
+    if ((kind == VAR) && (type == VOID_EXP)) {
+        printf("ERRO SEMÂNTICO: Variável tipo void: %s - Linha: %d\n", value, line_num );
+        error_num++;
+        return;
+    }
+
+    HashItem* item = create_item(value, scope, kind, type, qnt);
     int index = hash(value)%HASH_TABLE_SIZE;
 
     if(search_item(table, value, scope) != NULL){
-        printf("Erro na linha tal, declaração duplicado!\n");
+        printf("ERRO SEMÂNTICO: ID duplicado: %s - Linha: %d\n", value, line_num );
+        error_num++;
         return;
+    }
+    if(kind == VAR) {
+        HashItem* temp = search_item(table, value, "global");
+        if(temp != NULL && temp->kind == FUNC){
+            printf("ERRO SEMÂNTICO: ID já declarado como função: %s - Linha: %d\n", value, line_num );
+            error_num++;
+            return;
+        }
     }
     insert_line(item, line_num);
 
@@ -199,14 +216,14 @@ const char* type_to_string(ExpType type){
 }
 void print_table(HashTable* table){
     printf("============================================== TABELA DE SIMBOLOS ==============================================\n");
-    printf("======== ID ================ EXPRESSAO ============= ESCOPO ============== TIPO ============== LINHAS ==========\n");
+    printf("======== ID ========= EXPRESSAO ======= ESCOPO ====== TIPO = Quantidade de Parâmetros ============== LINHAS ==========\n");
 
 
     for(int i=0; i<HASH_TABLE_SIZE; i++){
         HashItem* current_item = table->items[i];
         if(current_item == NULL) continue;
 
-        printf("|%-20s||%-20s||%-20s||%-20s||     ",current_item->value, kind_to_string(current_item->kind), current_item->scope, type_to_string(current_item->type));
+        printf("|%-20s||%-8s||%-20s||%-5s||%-20d||     ",current_item->value, kind_to_string(current_item->kind), current_item->scope, type_to_string(current_item->type), current_item->qnt_param);
         LineList* temp = current_item->lines;
         printf("%d", temp->line_num);
         temp = temp->next_line;
@@ -218,7 +235,7 @@ void print_table(HashTable* table){
         
         HashItem* temp_item = current_item;
         while(temp_item->next_item != NULL){
-            printf("|%-20s||%-20s||%-20s||%-20s||     ",temp_item->next_item->value, kind_to_string(temp_item->next_item->kind), temp_item->next_item->scope, type_to_string(temp_item->next_item->type));
+            printf("|%-20s||%-8s||%-20s||%-5s||%-20d||     ",temp_item->next_item->value, kind_to_string(temp_item->next_item->kind), temp_item->next_item->scope, type_to_string(temp_item->next_item->type), temp_item->next_item->qnt_param);
             LineList* temp = temp_item->next_item->lines;
             printf("%d", temp->line_num);
             temp = temp->next_line;

@@ -6,7 +6,6 @@
 
 typedef enum {ERROR_NODE, OP_TERMINAL_NODE, OP_NODE, NUM_NODE, VAR_NODE, ID_NODE, FUNC_NODE, FUNC_PARAM_NODE, DECL_LIST_NODE, UNKNOWN_NODE, ASSIGN_NODE, FUNC_ACTV_NODE, RETURN_NODE, IF_NODE, WHILE_NODE, ARGS_NODE} NodeType;
 // Estrutura da árvore
-
 struct ParseTree
 {
     NodeType node_type;
@@ -43,4 +42,7 @@ struct ParseTree* create_return_node(struct ParseTree* first_child);
 struct ParseTree* create_if_node(struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* last_child);
 struct ParseTree* create_while_node(struct ParseTree* first_child, struct ParseTree* second_child);
 struct ParseTree* create_args_node(struct ParseTree* first_child);
+void procura_func_act(struct ParseTree* tree, int level);
+int procura_params(struct ParseTree* tree);
+void fun_conf_param(struct ParseTree* tree);
 #endif

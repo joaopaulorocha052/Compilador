@@ -66,7 +66,6 @@ whitespace  [ \t]+
                     }
 
                   } while (c != EOF);
-                  return FIM;
                 }
 .               {printf("ERRO LÉXICO: lexema %s não identificado. LINHA: %d\n", yytext, lineno);return ERROR;}
 
