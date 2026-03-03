@@ -13,6 +13,8 @@ programa: lexer.o bison.o
 
 
 lexer.o: $(SRC)/lex.l
+	mkdir -p gen
+	mkdir -p build
 	flex -o $(GEN)/lex.yy.c $(SRC)/lex.l
 
 bison.o: $(SRC)/sintatico.y
