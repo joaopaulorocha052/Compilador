@@ -1,29 +1,26 @@
-BIN = ./bin
 SRC = ./src
 OPT = ./get_opt
+INC = ./include
+BUILD = ./build
+GEN = ./gen
 
 
 all: programa
 
 
-programa: lexer.o main.o options.o
-	gcc -I$(SRC) -I$(OPT) -o $(BIN)/programa $(BIN)/options.o $(BIN)/lexer.o $(BIN)/main.o -lfl
-
+programa: lexer.o bison.o
+	gcc -I$(SRC) -I$(INC) -o $(BUILD)/comp $(GEN)/lex.yy.c $(GEN)/sintatico.tab.c $(SRC)/symbol_table.c $(SRC)/main.c -lfl
 
 
 lexer.o: $(SRC)/lex.l
-	flex -o $(SRC)/lex.yy.c $(SRC)/lex.l
-	gcc -I$(SRC) -c $(SRC)/lex.yy.c -o $(BIN)/lexer.o
+	flex -o $(GEN)/lex.yy.c $(SRC)/lex.l
 
-main.o: $(SRC)/main.c
-	gcc -I$(SRC) -c $(SRC)/main.c -o $(BIN)/main.o
-
-options.o: $(OPT)/options.c
-	gcc -c $(OPT)/options.c -o $(BIN)/options.o
+bison.o: $(SRC)/sintatico.y
+	bison -d -o $(GEN)/sintatico.tab.c $(SRC)/sintatico.y
 
 clean:
-	rm -f $(BIN)/*
-	rm -f $(SRC)/lex.yy.c
-
+	rm -f $(GEN)/*
+	rm -f $(BUILD)/*
+	
 clean-obj:
 	rm -f $(BIN)/*.o
