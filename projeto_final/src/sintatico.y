@@ -685,7 +685,7 @@ struct ParseTree* create_assign_node(struct ParseTree* first_child, struct Parse
 
 
 
-int main(int argc, char* argv[]){
+/* int main(int argc, char* argv[]){
     if(argc < 2){
         printf("ERRO\n");
         return -1;
@@ -701,7 +701,7 @@ int main(int argc, char* argv[]){
     free(temp_name_buffer);
     free(token_string);
     return 0;
-}
+} */
 
 void yyerror(char* s){
     /* extern char* yytext;
