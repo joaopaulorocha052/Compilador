@@ -8,8 +8,12 @@ GEN = ./gen
 all: programa
 
 
+debug: lexer.o bison.o
+	gcc -g -Wall -I$(SRC) -I$(INC) -o $(BUILD)/comp1 $(GEN)/lex.yy.c $(GEN)/sintatico.tab.c $(SRC)/symbol_table.c $(SRC)/code_gen.c $(SRC)/main.c -lfl
+
+
 programa: lexer.o bison.o
-	gcc -I$(SRC) -I$(INC) -o $(BUILD)/comp $(GEN)/lex.yy.c $(GEN)/sintatico.tab.c $(SRC)/symbol_table.c $(SRC)/main.c -lfl
+	gcc -I$(SRC) -I$(INC) -o $(BUILD)/comp1 $(GEN)/lex.yy.c $(GEN)/sintatico.tab.c $(SRC)/symbol_table.c $(SRC)/code_gen.c $(SRC)/main.c -lfl
 
 
 lexer.o: $(SRC)/lex.l

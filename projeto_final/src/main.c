@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include "code_gen.h"
 #include "symbol_table.h"
 #include "../get_opt/options.h"
 
@@ -16,6 +17,7 @@ extern int lineno;
 int flex_flag;
 
 struct ParseTree* (*parse_function)(void);
+struct ParseTree* sintTree;
 
 int main(int argc, char *argv[]){
     
@@ -26,6 +28,7 @@ int main(int argc, char *argv[]){
         return -1;
     }
 
+    
     parse_function = &yyparse;
 
     file = fopen(argv[1], "r");
@@ -35,6 +38,8 @@ int main(int argc, char *argv[]){
     table = create_table();
     yyparse();
 
+
+    print_tree_code_gen(sintTree);
     fclose(file);
     free(temp_name_buffer);
     free(token_string);

@@ -1,3 +1,4 @@
+
 %{
     /**********
         João Paulo Paixão Rocha - 156408
@@ -16,7 +17,7 @@
     int last_syntax_error_line = -1;
 
     void yyerror(char* s);
-
+    extern struct ParseTree* sintTree;
     extern int yylex(void);
     extern FILE* yyin;
     extern char* yytext;
@@ -29,8 +30,6 @@
     char* erro;
 
     HashTable* table;
-
-
 %}
 %start command
 %token IF ELSE WHILE RETURN INT VOID ASSIGN EQ LTE LT GTE GT DIFF PLUS MINUS TIMES OVER LPAREN RPAREN COMMA SEMI LCOLCH RCOLCH LCHAVE RCHAVE NUM ID FIM ERROR
@@ -44,8 +43,8 @@ command : programa {$$ = $1;
                         error_num++;
                     }
                     if(error_num == 0){
-                        
-                        print_tree($$, 0);
+		        sintTree = $$;
+                        print_tree(sintTree, 0);
                         print_table(table);
                         printf("\nBem sucedido\n");
                     }
@@ -55,11 +54,31 @@ programa: declaracao-lista {$$ = $1;};
 
 declaracao-lista: declaracao-lista declaracao {
                         struct ParseTree* temp = $1;
-                        while(temp->sibling != NULL) temp = temp->sibling;
+			if(temp != NULL){
+			  while(temp->sibling != NULL) temp = temp->sibling;
 
-                        temp->sibling = $2;
+			  temp->sibling = $2;
+			}
+			
+                        
+
+                        
                     }
-                  | declaracao {$$ = $1;};
+                  | declaracao {$$ = $1;}
+                  
+                  | error { char* erro = strdup(yytext); } token_qualquer SEMI{
+                    // MESMA LOGICA AQUI
+                    if (lineno > last_syntax_error_line) {
+                        printf("ERRO SINTÁTICO: token %s. LINHA: %d\n", erro, lineno);
+                        last_syntax_error_line = lineno;
+                        error_num++;
+                    }
+                    yyclearin; // Descarta token
+                    yyerrok;   // Continua parse
+                    $$ = NULL;
+                }
+
+                  ;
 
 declaracao: var-declaracao { $$ = $1;};
             | fun-declaracao {$$ = $1;};
@@ -98,7 +117,7 @@ var-declaracao: tipo-especificador  ID SEMI {
                     }
                     yyclearin; // Descarta token
                     yyerrok;   // Continua parse
-                    $$ = NULL;
+                    $$ = create_error_node();
                 }
 
 token_qualquer: RCHAVE token_qualquer| RCOLCH token_qualquer| RPAREN token_qualquer | COMMA token_qualquer | ID token_qualquer | PLUS token_qualquer | MINUS token_qualquer | LT token_qualquer | LTE token_qualquer | GT token_qualquer | GTE token_qualquer | IF token_qualquer | ELSE token_qualquer | WHILE token_qualquer | RETURN token_qualquer | INT token_qualquer | VOID token_qualquer | ASSIGN token_qualquer | EQ token_qualquer | DIFF token_qualquer | TIMES token_qualquer | OVER token_qualquer | NUM token_qualquer | LCHAVE token_qualquer | LCOLCH token_qualquer | LPAREN token_qualquer| ;
@@ -445,7 +464,6 @@ void print_tree(struct ParseTree* tree, int level){
 
     print_tree(tree->sibling, level);
 
-    free_node(tree);
 }
 
 void procura_func_act(struct ParseTree* tree, int level){

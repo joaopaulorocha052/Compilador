@@ -22,7 +22,7 @@ struct ParseTree
 };
 
 
-struct ParseTree* SyntaticTree;
+extern struct ParseTree* SyntaticTree;
 void print_tree(struct ParseTree* tree, int level) ;
 static struct ParseTree* allocate_node(NodeType type);
 static void free_node(struct ParseTree* node);
