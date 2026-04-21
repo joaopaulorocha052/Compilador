@@ -84,7 +84,7 @@ declaracao: var-declaracao { $$ = $1;};
             | fun-declaracao {$$ = $1;};
 
 var-declaracao: tipo-especificador  ID SEMI {
-                    $$ = create_var_node(create_id_node(token_string), NULL);
+                    $$ = create_var_decl_node(create_id_node(token_string));
                     if($1->node_value.op_value == VOID){
                         insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, VOID_EXP, 0);
                     } else {
@@ -452,6 +452,9 @@ void print_tree(struct ParseTree* tree, int level){
         case WHILE_NODE:
             printf("WHILE_NODE:\n");
             break;
+    case VAR_DECL_NODE:
+            printf("VAR_DECL_NODE:\n");
+            break;
         default:
             printf("Unknown Node: %d\n", tree->node_type);
             break;
@@ -618,6 +621,15 @@ struct ParseTree* create_var_node(struct ParseTree* first_child, struct ParseTre
 
     node->children[0] = first_child;
     node->children[1] = second_child;
+
+    return node;
+}
+
+struct ParseTree* create_var_decl_node(struct ParseTree* first_child){
+    // first child - variable id | second child - vector size (NULL if integer)
+    struct ParseTree* node = allocate_node(VAR_DECL_NODE);
+
+    node->children[0] = first_child;
 
     return node;
 }

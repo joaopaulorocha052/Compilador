@@ -33,12 +33,15 @@ typedef enum {
   INT_NUM
 } ADDR_TYPES;
 
-struct ADDR{
-  ADDR_TYPES type;
-   union{
+union ADDRESS{
     int int_num;
     char* name;
-  } ADDRESS;
+  };
+
+struct ADDR{
+  ADDR_TYPES type;
+  union ADDRESS value;
+   
 };
 struct Quadrupla{
   QUADRUPLE_TYPES type;
@@ -48,5 +51,14 @@ struct Quadrupla{
 
 void print_quad(struct Quadrupla quad);
 void print_tree_code_gen(struct ParseTree* tree);
-
+static char* get_register();
+static struct Quadrupla build_quad(QUADRUPLE_TYPES quad_type,
+			    ADDR_TYPES first_address_type,
+			    union ADDRESS fisrt_address_value,
+			    ADDR_TYPES second_address_type,
+			    union ADDRESS second_address_value,
+			    ADDR_TYPES third_address_type,
+			    union ADDRESS third_address_value
+				   );
+static struct Quadrupla build_var_quad(char* name, char* regist);
 #endif

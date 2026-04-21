@@ -6,28 +6,47 @@
 #include "../gen/sintatico.tab.h"
 
 
-char* get_register(){
+static char* get_register(){
   return "$t1";
 }
 
 
-struct Quadrupla build_quad(QUADRUPLE_TYPES quad_type, struct ADDR addr1, struct ADDR addr2, struct ADDR addr3{
+static struct Quadrupla build_quad(QUADRUPLE_TYPES quad_type,
+			    ADDR_TYPES first_address_type,
+			    union ADDRESS first_address_value,
+			    ADDR_TYPES second_address_type,
+			    union ADDRESS second_address_value,
+			    ADDR_TYPES third_address_type,
+			    union ADDRESS third_address_value
+			    )
+{
 
      
     
     
     return (struct Quadrupla){
 	    .type = quad_type,
-	    .addr1 = {.type = NAME, .ADDRESS.name = temp},
-	    .addr2 = {.type = REGIST, .ADDRESS.name = get_register()},
-	    .addr3 = {.type = VAZIO, .ADDRESS.name = "-"}
+	    .addr1 = {.type = first_address_type, .value = first_address_value},
+	    .addr2 = {.type = second_address_type, .value = second_address_value},
+	    .addr3 = {.type = third_address_type, .value = third_address_value}
 	    
 	  };
   
 }
+
+static struct Quadrupla build_var_quad(char* name, char* regist){
+  union ADDRESS addr1, addr2, addr3;
+
+  addr1.name = name;
+  addr2.name = regist;
+  addr3.name = "-";
+
+  return build_quad(Q_INIT, NAME, addr1, REGIST, addr2, VAZIO, addr3);
+}
+
 void print_quad(struct Quadrupla quad){
 
-  printf("Q_INIT %s %s %s", quad.addr1.ADDRESS.name, quad.addr2.ADDRESS.name, quad.addr3.ADDRESS.name);
+  printf("Q_INIT %s %s %s", quad.addr1.value.name, quad.addr2.value.name, quad.addr3.value.name);
   printf("\n");
   
 }
@@ -90,16 +109,10 @@ void print_tree_code_gen(struct ParseTree* tree){
         case NUM_NODE:
 	  //printf("NUM_NODE: %d\n", tree->node_value.num_value);
             break;
-        case VAR_NODE:
+        case VAR_DECL_NODE:
 	  strcpy(temp, tree->children[0]->node_value.id_name);
 
-	  quad = (struct Quadrupla){
-	    .type = Q_INIT,
-	    .addr1 = {.type = NAME, .ADDRESS.name = temp},
-	    .addr2 = {.type = REGIST, .ADDRESS.name = get_register()},
-	    .addr3 = {.type = VAZIO, .ADDRESS.name = "-"}
-	    
-	  };
+	  quad = build_var_quad(temp, get_register());
 	  print_quad(quad);
 	  //printf("VAR_NODE\n");
             break;
