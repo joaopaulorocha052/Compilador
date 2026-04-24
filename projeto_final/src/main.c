@@ -39,7 +39,7 @@ int main(int argc, char *argv[]){
     yyparse();
 
 
-    print_tree_code_gen(sintTree);
+    gen_code(sintTree);
     fclose(file);
     free(temp_name_buffer);
     free(token_string);
