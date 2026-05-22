@@ -20,11 +20,13 @@ typedef enum {
     Q_ACCESS_VET,
     Q_IF,
     Q_GOTO,
+    Q_LABEL,
     Q_INITVET,
     Q_INIT,
     Q_DEF,
     Q_CALL,
     Q_ARG,
+    Q_PARAM,
     Q_RETURN,
     Q_HALT
 } QUADRUPLE_TYPES;
@@ -52,6 +54,20 @@ struct Quadrupla{
   char* msg;
 };
 
+struct ListNode{
+  struct Quadrupla quad;
+  struct ListNode* next;
+
+};
+
+struct QuadrupleList{
+  struct ListNode* list;
+  struct ListNode* tail;
+};
+
+
+extern struct QuadrupleList* quadruples;
+extern struct Quadrupla* head;
 
 
 void print_quad(struct Quadrupla quad);
