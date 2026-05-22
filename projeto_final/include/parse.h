@@ -5,7 +5,7 @@
 #include "lexer.h"
 
 
-typedef enum {ERROR_NODE, OP_TERMINAL_NODE, OP_NODE, NUM_NODE, VAR_NODE, VAR_DECL_NODE, ID_NODE, FUNC_NODE, FUNC_PARAM_NODE, DECL_LIST_NODE, UNKNOWN_NODE, ASSIGN_NODE, FUNC_ACTV_NODE, RETURN_NODE, IF_NODE, WHILE_NODE, ARGS_NODE} NodeType;
+typedef enum {ERROR_NODE, OP_TERMINAL_NODE, OP_NODE, NUM_NODE, VAR_NODE, VAR_DECL_NODE, VET_DECL_NODE, ID_NODE, FUNC_NODE, FUNC_PARAM_NODE, DECL_LIST_NODE, UNKNOWN_NODE, ASSIGN_NODE, FUNC_ACTV_NODE, RETURN_NODE, IF_NODE, WHILE_NODE, ARGS_NODE} NodeType;
 // Estrutura da árvore
 struct ParseTree
 {
@@ -34,6 +34,7 @@ struct ParseTree* create_op_node(struct ParseTree* first_child, struct ParseTree
 struct ParseTree* create_num_node(int value);
 struct ParseTree* create_var_node(struct ParseTree* first_child, struct ParseTree* second_child);
 struct ParseTree* create_var_decl_node(struct ParseTree* first_child);
+struct ParseTree* create_vet_decl_node(struct ParseTree* first_child, struct ParseTree* second_child);
 struct ParseTree* create_id_node(char* id_name);
 struct ParseTree* create_func_node(struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* last_child);
 struct ParseTree* create_param_node(struct ParseTree* first_child);

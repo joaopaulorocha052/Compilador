@@ -92,7 +92,7 @@ var-declaracao: tipo-especificador  ID SEMI {
                     }
                 }
                 | tipo-especificador ID LCOLCH NUM RCOLCH SEMI {
-                    $$ = create_var_node(create_id_node(token_string), create_num_node(token_num));
+                    $$ = create_vet_decl_node(create_id_node(token_string), create_num_node(token_num));
                     if($1->node_value.op_value == VOID){
                         insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, VOID_EXP, 0);
                     } else {
@@ -630,6 +630,16 @@ struct ParseTree* create_var_decl_node(struct ParseTree* first_child){
     struct ParseTree* node = allocate_node(VAR_DECL_NODE);
 
     node->children[0] = first_child;
+
+    return node;
+}
+
+struct ParseTree* create_vet_decl_node(struct ParseTree* first_child, struct ParseTree* second_child){
+    // first child - variable id | second child - vector size (NULL if integer)
+    struct ParseTree* node = allocate_node(VET_DECL_NODE);
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
 
     return node;
 }
