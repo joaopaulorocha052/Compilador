@@ -9,7 +9,7 @@ all: programa
 
 
 debug: lexer.o bison.o
-	gcc -g -Wall -I$(SRC) -I$(INC) -o $(BUILD)/pinecc $(GEN)/*.c $(SRC)/*.c -lfl
+	gcc -g -Wall -I$(SRC) -I$(INC) -o $(BUILD)/debug_build $(GEN)/*.c $(SRC)/*.c -lfl
 
 programa: lexer.o bison.o
 	gcc -I$(SRC) -I$(INC) -o $(BUILD)/pinecc $(GEN)/*.c $(SRC)/*.c -lfl

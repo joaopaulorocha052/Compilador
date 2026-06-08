@@ -47,6 +47,19 @@ void print_list(struct QuadrupleList* list){
 
 void print_quad(struct Quadrupla quad){
     struct ADDR addrs[3] = {quad.addr1, quad.addr2, quad.addr3};
+
+    if(quad.type == Q_LABEL){
+        printf("L%d: \n", quad.addr1.value.int_num);
+        return;
+    }
+    else if(quad.type == Q_FUNCEND){
+        printf("end %s\n\n", quad.addr1.value.name);
+        return;
+    }
+    else if(quad.type == Q_FUNCLABEL){
+        printf("\n%s:\n", quad.addr1.value.name);
+        return;
+    }
     
     printf("%s ", quadruple_type_to_string(quad.type));
     for(int i=0; i<3; i++){
@@ -92,6 +105,7 @@ const char* quadruple_type_to_string(QUADRUPLE_TYPES type) {
         case Q_HALT:        return "Q_HALT";
         case Q_PARAM:       return "Q_PARAM";
         case Q_LABEL:       return "Q_LABEL";
+
         default:            return "UNKNOWN";
     }
 }

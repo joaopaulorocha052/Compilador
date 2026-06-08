@@ -12,28 +12,6 @@ int current_label = 0;
 
 extern struct QuadrupleList* quadList;
 
-static struct Quadrupla build_quad(QUADRUPLE_TYPES quad_type,
-			    ADDR_TYPES first_address_type,
-			    union ADDRESS first_address_value,
-			    ADDR_TYPES second_address_type,
-			    union ADDRESS second_address_value,
-			    ADDR_TYPES third_address_type,
-			    union ADDRESS third_address_value
-			    )
-{
-
-     
-    
-    
-    return (struct Quadrupla){
-	    .type = quad_type,
-	    .addr1 = {.type = first_address_type, .value = first_address_value},
-	    .addr2 = {.type = second_address_type, .value = second_address_value},
-	    .addr3 = {.type = third_address_type, .value = third_address_value}
-	    
-	  };
-  
-}
 
 static struct Quadrupla create_quad(QUADRUPLE_TYPES quad_type,
 			    struct ADDR first_address_value,
@@ -50,50 +28,6 @@ static struct Quadrupla create_quad(QUADRUPLE_TYPES quad_type,
 	    
 	  };
   
-}
-
-static struct Quadrupla build_var_quad(char* name){
-  union ADDRESS addr1, addr2, addr3;
-
-  addr1.name = name;
-  addr2.name = "-";
-  addr3.name = "-";
-
-  return build_quad(Q_INIT, NAME, addr1, REGIST, addr2, VAZIO, addr3);
-}
-
-static struct Quadrupla build_vet_quad(char* name, char* num){
-  union ADDRESS addr1, addr2, addr3;
-
-  addr1.name = name;
-  addr2.name = num;
-  addr3.name = "-";
-
-  return build_quad(Q_INITVET, NAME, addr1, REGIST, addr2, VAZIO, addr3);
-}
-
-static struct Quadrupla build_assign_quad(char* name, ADDR_TYPES second_address_type, char * second_addres){
-  union ADDRESS addr1, addr2, addr3;
-
-  addr1.name = name;
-  addr2.name = second_addres;
-  addr3.name = "-";
-
-  
-
-  return build_quad(Q_ASSIGN, NAME, addr1, second_address_type, addr2, VAZIO, addr3);
-}
-
-static struct Quadrupla build_op_quad(QUADRUPLE_TYPES op_type, char* name, ADDR_TYPES second_address_type, char * second_addres, ADDR_TYPES third_address_type, char * third_addres){
-  union ADDRESS addr1, addr2, addr3;
-
-  addr1.name = name;
-  addr2.name = second_addres;
-  addr3.name = third_addres;
-
-  
-
-  return build_quad(op_type, REGIST, addr1, second_address_type, addr2, third_address_type, addr3);
 }
 
 int emit_quad(QUADRUPLE_TYPES quad_type, char* first_value, char* second_value, char* third_value){
@@ -130,12 +64,7 @@ int emit_quad(QUADRUPLE_TYPES quad_type, char* first_value, char* second_value, 
   return 1;
 }
 
-void print_quad2(struct Quadrupla quad){
 
-  printf("%s %s %d %s", quadruple_type_to_string(quad.type), quad.addr1.value.name, quad.addr2.value.int_num, quad.addr3.value.name);
-  printf("\n");
-  
-}
 
 const QUADRUPLE_TYPES token_to_quad(int token) {
     switch (token) {
@@ -182,7 +111,7 @@ char* gen_code(struct ParseTree* tree){
       return temp;
 
     case RETURN_NODE:
-      // printf("RETURN %s\n", gen_code(tree->children[0]));
+
       emit_quad(Q_RETURN, gen_code(tree->children[0]), "-", "-");
       return NULL;
 
@@ -209,13 +138,8 @@ char* gen_code(struct ParseTree* tree){
       else{
         char size[1];
         char *temp_return = malloc(16);
-        sprintf(size, "%d", 4);
-        sprintf(temp_name, "_t%d", temporary_variable++);
-        quad = build_op_quad(Q_MULT, temp_name, REGIST, gen_code(tree->children[1]), INT_NUM, size);
 
-        print_quad(quad);
-
-        sprintf(temp_return, "%s[%s]", tree->children[0]->node_value.id_name, temp_name);
+        sprintf(temp_return, "%s[%s]", tree->children[0]->node_value.id_name, gen_code(tree->children[1]));
         return temp_return;
         
       }
@@ -233,12 +157,12 @@ char* gen_code(struct ParseTree* tree){
       return temp_name;
 
     case IF_NODE:
-      sprintf(label, "L%d:", current_label++);
-
-      emit_quad(Q_IF, gen_code(tree->children[0]), label, "-");
+      sprintf(label, "%d:", current_label++);
+      char* label_string = strdup(label);
+      emit_quad(Q_IF, gen_code(tree->children[0]), label_string, "-");
       gen_code(tree->children[1]);
-      printf("%s  ", label);
-      gen_code(gen_code(tree->children[2]));
+      emit_quad(Q_LABEL, label_string, "-", "-");
+      gen_code(tree->children[2]);
 
       gen_code(tree->sibling);
     
@@ -259,10 +183,12 @@ char* gen_code(struct ParseTree* tree){
       return temp_name;
 
     case FUNC_NODE:
-      printf("%s: \n", tree->children[0]->node_value.id_name);
+      emit_quad(Q_FUNCLABEL, tree->children[0]->node_value.id_name, "-", "-");
+
       gen_code(tree->children[1]);
       gen_code(tree->children[2]);
-      printf("END %s\n", tree->children[0]->node_value.id_name);
+
+      emit_quad(Q_FUNCEND, tree->children[0]->node_value.id_name, "-", "-");
       gen_code(tree->sibling);
       break;
 
@@ -273,18 +199,25 @@ char* gen_code(struct ParseTree* tree){
       second_label = current_label + 1;
       third_label = current_label + 2;
       current_label = third_label+1;
-      printf("L%d: ", first_label);
-      sprintf(label, "L%d:", second_label);
-      
-      emit_quad(Q_IF, gen_code(tree->children[0]), label, "-");
 
-      sprintf(label, "L%d:", second_label);
+      sprintf(label, "%d", first_label);
+      emit_quad(Q_LABEL, label, "-", "-");
+      sprintf(label, "%d", second_label);
+      emit_quad(Q_IF, gen_code(tree->children[0]), label, "-");
+      
+
+      sprintf(label, "%d", third_label);
       emit_quad(Q_GOTO, label, "-", "-");
-      printf("L%d: ", second_label);
+
+      sprintf(label, "%d", second_label);
+      emit_quad(Q_LABEL, label, "-", "-");
       gen_code(tree->children[1]);
-      sprintf(label, "L%d:", first_label);
+
+      sprintf(label, "%d", first_label);
       emit_quad(Q_GOTO, label, "-", "-");
-      printf("L%d: ", third_label);
+
+      sprintf(label, "%d", third_label);
+      emit_quad(Q_LABEL, label, "-", "-");
       
       gen_code(tree->sibling);
       return NULL;
@@ -298,91 +231,3 @@ char* gen_code(struct ParseTree* tree){
     }
 }
 
-/* char* print_tree_code_gen(struct ParseTree* tree){ */
-
-/*   int  children_already_checked = 0; */
-
-  
-/*   if(tree == NULL || children_already_checked) return; */
-    
-/*     char str[9]; */
-/*     char temp[15]; */
-/*     char msg[30]; */
-
-    
-
-/*     struct Quadrupla quad; */
-/*     switch(tree->node_type){ */
-/*         case OP_TERMINAL_NODE: */
-
-/*             break; */
-/*         case OP_NODE: */
-/* 	  //printf("OP_NODE\n"); */
-
-/* 	  quad = build_quad(tree->node_value.op_value, ) */
-	  
-/* 	  break; */
-/*         case NUM_NODE: */
-/* 	  //printf("NUM_NODE: %d\n", tree->node_value.num_value); */
-/*             break; */
-/*         case VAR_DECL_NODE: */
-/* 	  strcpy(temp, tree->children[0]->node_value.id_name); */
-
-/* 	  quad = build_var_quad(temp); */
-/* 	  print_quad(quad); */
-/* 	  //printf("VAR_NODE\n"); */
-/*             break; */
-/*         case ARGS_NODE: */
-/* 	  //printf("ARGS_NODE\n"); */
-/*             break; */
-/*         case ID_NODE: */
-/* 	  //printf("ID_NODE: %s\n", tree->node_value.id_name); */
-/*             break; */
-/*         case FUNC_PARAM_NODE: */
-/* 	  //printf("FUNC_PARAM_NODE\n"); */
-/*             break; */
-/*         case FUNC_NODE: */
-/* 	  //printf("FUNC_NODE\n"); */
-/*             break; */
-/*         case DECL_LIST_NODE: */
-/* 	  //printf("DECL_LIST_NODE\n"); */
-/*             break; */
-/*         case ASSIGN_NODE: */
-/* 	  strcpy(temp, tree->children[0]->children[0]->node_value.id_name); */
-/* 	  int var1_type = tree->children[1]->node_type; */
-/* 	  int teste; */
-/* 	  if(var1_type == NUM_NODE){ */
-/* 	    teste = tree->children[1]->node_value.num_value; */
-/* 	  } */
-/* 	  else{ */
-	    
-	    
-/* 	  } */
-/* 	  quad = build_assign_quad(temp, var1_type, &teste); */
-/* 	  print_quad2(quad); */
-/* 	  //printf("ASSIGN_NODE:\n"); */
-/*             break; */
-/*         case FUNC_ACTV_NODE: */
-/* 	  //printf("FUNC_ACTV_NODE:\n"); */
-/*             break; */
-/*         case RETURN_NODE: */
-/* 	  //printf("RETURN_NODE:\n"); */
-/*             break; */
-/*         case IF_NODE: */
-/* 	  //printf("IF_NODE:\n"); */
-/*             break; */
-/*         case WHILE_NODE: */
-/* 	  //printf("WHILE_NODE:\n"); */
-/*             break; */
-/*         default: */
-/* 	  //printf("Unknown Node: %d\n", tree->node_type); */
-/*             break; */
-/*     } */
-    
-    
-/*     for(int i=0; i<NUM_CHILDREN; i++){ */
-/*         print_tree_code_gen(tree->children[i]); */
-/*     } */
-
-/*     print_tree_code_gen(tree->sibling); */
-/* } */
