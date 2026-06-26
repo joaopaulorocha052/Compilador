@@ -152,7 +152,12 @@ const char* asm_operation_to_string(ASM_OPERATION op) {
         case ASM_OR:   return "OR";
         case ASM_LI:   return "LI";
         case ASM_SI:   return "SI";
-        case ASM_EQ: return "EQ";
+        case ASM_EQ:   return "EQ";
+        case ASM_NEQ:  return "NEQ";
+        case ASM_GT:   return "GT";
+        case ASM_GTE:  return "GTE";
+        case ASM_LT:   return "LT";
+        case ASM_LTE:  return "LTE";
         default:   return "UNKNOWN_OP";
     }
 }
@@ -183,6 +188,11 @@ void print_asm_operation(AsmOperation op) {
         case ASM_AND:
         case ASM_OR:
         case ASM_EQ:
+        case ASM_NEQ:
+        case ASM_GT:
+        case ASM_GTE:
+        case ASM_LT:
+        case ASM_LTE:
             print_operand(op.operands[0]);
             printf(", ");
             print_operand(op.operands[1]);
