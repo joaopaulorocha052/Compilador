@@ -47,6 +47,8 @@ int main(int argc, char *argv[]){
     
     print_list(quadList);
 
+    asm_gen(quadList);
+
     fclose(file);
     free(temp_name_buffer);
     free(token_string);

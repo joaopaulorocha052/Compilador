@@ -5,12 +5,14 @@
 #include "parse.h"
 #include "code_gen.h"
 #include "utils.h"
+#include "symbol_table.h"
 #include "../gen/sintatico.tab.h"
 
 int temporary_variable = 0;
 int current_label = 0;
 
 extern struct QuadrupleList* quadList;
+extern struct HashTable* table;
 
 
 static struct Quadrupla create_quad(QUADRUPLE_TYPES quad_type,
@@ -157,12 +159,26 @@ char* gen_code(struct ParseTree* tree){
       return temp_name;
 
     case IF_NODE:
-      sprintf(label, "%d:", current_label++);
+      sprintf(label, "%d", current_label++);
       char* label_string = strdup(label);
       emit_quad(Q_IF, gen_code(tree->children[0]), label_string, "-");
       gen_code(tree->children[1]);
-      emit_quad(Q_LABEL, label_string, "-", "-");
-      gen_code(tree->children[2]);
+      
+      if(tree->children[2] != NULL)
+      {
+        sprintf(label, "%d", current_label++);
+        char* goto_label = strdup(label);
+        emit_quad(Q_GOTO, goto_label, "-", "-");
+        emit_quad(Q_LABEL, label_string, "-", "-");
+        gen_code(tree->children[2]);
+        emit_quad(Q_LABEL, goto_label, "-", "-");
+      }
+      else
+      {
+        emit_quad(Q_LABEL, label_string, "-", "-");
+      }
+      
+
 
       gen_code(tree->sibling);
     

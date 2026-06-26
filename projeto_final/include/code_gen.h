@@ -15,14 +15,14 @@ typedef enum {
     Q_IGUAL,
     Q_DIFF,
     Q_MENOR,
-    Q_ASSIGN,
+    Q_ASSIGN, // x
     Q_ASSIGN_VET,
     Q_ACCESS_VET,
     Q_IF,
     Q_GOTO,
     Q_LABEL,
-    Q_INITVET,
-    Q_INIT,
+    Q_INITVET,// x
+    Q_INIT, // x
     Q_DEF,
     Q_CALL,
     Q_ARG,
