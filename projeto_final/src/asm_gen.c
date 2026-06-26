@@ -12,9 +12,27 @@ int label_position[32];
 char current_function_scope[SCOPE_NAME_SIZE] = "global";
 
 AsmOperation operation_list[MAX_OPERATION];
+
+/*
+ * current_sp acompanha a posição REAL da pilha (registrador SP físico).
+ * Ela só cresce (Q_INIT/Q_INITVET avançam) e só diminui no epílogo de
+ * uma função (Q_FUNCEND), nunca é "resetada" arbitrariamente -- senão
+ * duas funções diferentes acabariam reaproveitando os mesmos endereços
+ * de pilha mesmo que uma ainda esteja "viva" (ex: recursão, ou uma
+ * função que chama outra).
+ *
+ * current_local_offset é só para variáveis GLOBAIS, que vivem em
+ * endereços fixos a partir de 0(R0) e nunca são desalocadas.
+ *
+ * current_frame_offset é o offset relativo ao FP da função atual.
+ * Esse sim é zerado a cada Q_FUNCLABEL, porque cada função tem seu
+ * próprio frame e suas variáveis locais sempre começam em offset 0
+ * relativo ao FP daquela chamada específica.
+ */
 int current_sp = 0;
 int current_fp = 0;
 int current_local_offset = 0;
+int current_frame_offset = 0;
 
 int current_line = 0;
 
@@ -24,7 +42,15 @@ int get_new_register()
 {
     static int returned_register = 4;
 
-    if(returned_register >= MAX_NUM_REGISTER-3) returned_register = 0;
+    // Registradores 0-3 são especiais e reservados pelo hardware
+    // (R0=zero fixo, R1=output, R2=input, R3=config -- ver registradores.v),
+    // e 29-31 são FP/SP/RA (ver asm_gen.h). O "pool" de registradores de uso
+    // livre para temporários é só 4..28. Por isso o reset tem que voltar
+    // para 4, e não para 0 -- senão um programa com operações suficientes
+    // em sequência eventualmente aloca R0/R1/R2/R3 como destino de
+    // resultado, e essas escritas se perdem (R0 é fixo em zero) ou
+    // corrompem registradores de I/O.
+    if(returned_register >= MAX_NUM_REGISTER-3) returned_register = 4;
 
     return returned_register++;
 }
@@ -53,6 +79,54 @@ void print_op_list(){
         print_asm_operation(operation_list[i]);
     }
 }
+
+/*
+ * Traduz uma operação binária genérica (aritmética ou relacional):
+ *   addr1 = addr2 <asm_op> addr3
+ *
+ * addr2/addr3 podem ser constante (INT_NUM) ou variável (NAME); nos dois
+ * casos o valor termina num registrador novo. addr1 é sempre o destino
+ * (um temporário "_tN" criado em OP_NODE), que por construção do
+ * code_gen.c só existe dentro do corpo de uma função -- nunca no escopo
+ * global -- então o destino sempre usa FRAME_POINTER como base, igual
+ * o Q_IGUAL original já assumia.
+ *
+ * Retorna o número de instruções emitidas, para quem chama incrementar
+ * current_line corretamente.
+ */
+static int emit_binary_op(ASM_OPERATION asm_op, struct Quadrupla quad)
+{
+    int reg1 = get_new_register();
+    int reg2 = get_new_register();
+    int result_reg = get_new_register();
+    int count = 0;
+
+    if (quad.addr2.type == INT_NUM) {
+        emit_operation(ASM_ADDI, reg(reg1), reg(0), num(quad.addr2.value.int_num));
+    } else {
+        mem_offset_t offset1 = get_symbol_offset(table, quad.addr2.value.name, current_function_scope);
+        emit_operation(ASM_LW, reg(reg1), reg(FRAME_POINTER), num(offset1));
+    }
+    count++;
+
+    if (quad.addr3.type == INT_NUM) {
+        emit_operation(ASM_ADDI, reg(reg2), reg(0), num(quad.addr3.value.int_num));
+    } else {
+        mem_offset_t offset2 = get_symbol_offset(table, quad.addr3.value.name, current_function_scope);
+        emit_operation(ASM_LW, reg(reg2), reg(FRAME_POINTER), num(offset2));
+    }
+    count++;
+
+    emit_operation(asm_op, reg(result_reg), reg(reg1), reg(reg2));
+    count++;
+
+    mem_offset_t dest_offset = get_symbol_offset(table, quad.addr1.value.name, current_function_scope);
+    emit_operation(ASM_SW, reg(result_reg), reg(FRAME_POINTER), num(dest_offset));
+    count++;
+
+    return count;
+}
+
 AsmOperation translate_quad(struct Quadrupla quad)
 {
     mem_offset_t temp_offset;
@@ -66,32 +140,55 @@ AsmOperation translate_quad(struct Quadrupla quad)
             current_line++;
             break;
         case Q_INIT:
+            // Garante que o símbolo existe na tabela antes de tentar
+            // gravar um offset nele. Variáveis declaradas pelo usuário
+            // já foram inseridas na fase sintática (sintatico.y), então
+            // search_item já encontra e o insert_item abaixo nem executa.
+            // Mas temporários gerados pelo compilador (_t0, _t1, ...)
+            // nunca passam pela fase sintática -- são criados direto em
+            // code_gen.c -- então, sem isso, eles nunca entrariam na
+            // tabela e add_offset_to_symbol não teria em que gravar o
+            // offset (ela só atualiza um item que já existe).
+            if(search_item(table, quad.addr1.value.name, current_function_scope) == NULL) {
+                insert_item(table, quad.addr1.value.name, current_function_scope, 0, VAR, INT_EXP, 0);
+            }
+
             if(strcmp(current_function_scope, "global") == 0)
             {
+                // Globais: endereço fixo a partir de 0(R0), nunca desalocado.
                 add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_local_offset);
-                emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(1));
-
                 current_local_offset++;
             }
             else{
-                add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_sp);
-                emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(1));
-                current_sp++;
+                // Locais: offset relativo ao FP da função atual.
+                add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_frame_offset);
+                current_frame_offset++;
             }
+            // SP avança de qualquer forma -- é ele que efetivamente reserva
+            // a palavra de memória, seja ela global (no fundo da pilha,
+            // antes de qualquer função rodar) ou local (dentro do frame
+            // da função atual).
+            emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(1));
+            current_sp++;
             current_line++;
             break;
 
         case Q_INITVET:
+            if(search_item(table, quad.addr1.value.name, current_function_scope) == NULL) {
+                insert_item(table, quad.addr1.value.name, current_function_scope, 0, VAR, INT_EXP, 0);
+            }
+
             if(strcmp(current_function_scope, "global") == 0)
             {
                 add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_local_offset);
                 current_local_offset += quad.addr2.value.int_num;
             }
             else{
-                add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_sp);
-                current_sp += quad.addr2.value.int_num;
+                add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_frame_offset);
+                current_frame_offset += quad.addr2.value.int_num;
             }
             emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(quad.addr2.value.int_num));
+            current_sp += quad.addr2.value.int_num;
             current_line++;
             break;
         case Q_ASSIGN: {
@@ -136,37 +233,40 @@ AsmOperation translate_quad(struct Quadrupla quad)
             current_line += 2;
             break;
         }
+        // ---------------------------------------------------------------
+        // Operações binárias (aritméticas e relacionais): todas seguem o
+        // mesmo padrão -- carregar os dois operandos, aplicar a ULA com
+        // o select correspondente, e gravar o resultado no destino.
+        // ---------------------------------------------------------------
+        case Q_SOMA:
+            current_line += emit_binary_op(ASM_ADD, quad);
+            break;
+        case Q_SUB:
+            current_line += emit_binary_op(ASM_SUB, quad);
+            break;
+        case Q_MULT:
+            current_line += emit_binary_op(ASM_MULT, quad);
+            break;
+        case Q_DIV:
+            current_line += emit_binary_op(ASM_DIV, quad);
+            break;
         case Q_IGUAL:
-        
-            int reg1 = get_new_register();
-            int reg2 = get_new_register();
-            int temp_reg = get_new_register();
-
-            if (quad.addr2.type == INT_NUM) { 
-                // Se for número, usamos ADDI reg1, R0, valor
-                emit_operation(ASM_ADDI, reg(reg1), reg(0), num(quad.addr2.value.int_num));
-            } else {
-                // Se for variável, pegamos o offset e usamos LW reg1, offset(FP)
-                mem_offset_t offset1 = get_symbol_offset(table, quad.addr2.value.name, current_function_scope);
-                emit_operation(ASM_LW, reg(reg1), num(offset1), reg(FRAME_POINTER));
-            }
-
-            if (quad.addr3.type == INT_NUM) {
-                emit_operation(ASM_ADDI, reg(reg2), reg(0), num(quad.addr3.value.int_num));
-            } 
-            else {
-                mem_offset_t offset2 = get_symbol_offset(table, quad.addr3.value.name, current_function_scope);
-                emit_operation(ASM_LW, reg(reg2), num(offset2), reg(FRAME_POINTER));
-            }
-
-
-            emit_operation(ASM_EQ, reg(temp_reg), reg(reg1), reg(reg2));
-
-
-            mem_offset_t dest_offset = get_symbol_offset(table, quad.addr1.value.name, current_function_scope);
-            emit_operation(ASM_SW, reg(temp_reg), num(dest_offset), reg(FRAME_POINTER));
-            current_line+=4;
-            
+            current_line += emit_binary_op(ASM_EQ, quad);
+            break;
+        case Q_DIFF:
+            current_line += emit_binary_op(ASM_NEQ, quad);
+            break;
+        case Q_MAIOR:
+            current_line += emit_binary_op(ASM_GT, quad);
+            break;
+        case Q_MAIOR_Q:
+            current_line += emit_binary_op(ASM_GTE, quad);
+            break;
+        case Q_MENOR:
+            current_line += emit_binary_op(ASM_LT, quad);
+            break;
+        case Q_MENOR_Q:
+            current_line += emit_binary_op(ASM_LTE, quad);
             break;
         case Q_IF:
             int temp_reg1 = get_new_register();
@@ -180,34 +280,72 @@ AsmOperation translate_quad(struct Quadrupla quad)
             } else {
                 // Caso padrão: carrega o valor booleano salvo na memória
                 mem_offset_t offset = get_symbol_offset(table, quad.addr1.value.name, current_function_scope);
-                emit_operation(ASM_LW, reg(temp_reg1), num(offset), reg(FRAME_POINTER));
+                emit_operation(ASM_LW, reg(temp_reg1), reg(FRAME_POINTER), num(offset));
             }
 
             // ---------------------------------------------------------
-            // PASSO 2: Preparar o valor Verdadeiro (1) para o BEQ
-            // ---------------------------------------------------------
-            int reg_true = get_new_register();
-            emit_operation(ASM_ADDI, reg(reg_true), reg(0), num(1));
-
-            // ---------------------------------------------------------
-            // PASSO 3: Realizar o salto (Branch)
+            // PASSO 2: Realizar o salto (Branch)
             // ---------------------------------------------------------
             // O addr2 guarda o nome da label (como string). Como o seu code_gen.c
             // gera labels como números (ex: "1", "2"), convertemos para inteiro.
+            //
+            // CORREÇÃO: a quádrupla Q_IF significa "se a condição for
+            // FALSA, salte para a label" -- o bloco "then" vem imediatamente
+            // em sequência depois do Q_IF (sem goto), e a label marca o
+            // início do bloco "else". Então o salto deve ocorrer quando o
+            // valor da condição é 0 (falso), não quando é 1 (verdadeiro).
+            // Como R0 já é fixo em zero no hardware, basta comparar contra
+            // ele direto -- nem precisa de um registrador extra com o "1".
             int target_label = label_position[quad.addr2.value.int_num]; 
 
-            // Emite: BEQ temp_reg, reg_true, target_label
-            emit_operation(ASM_BEQ, reg(temp_reg1), reg(reg_true), num(target_label));
-            current_line+=3;
+            // Emite: BEQ temp_reg, R0, target_label (salta se condição == falso)
+            emit_operation(ASM_BEQ, reg(temp_reg1), reg(0), num(target_label));
+            current_line+=2;
             break;
         case Q_FUNCLABEL:
+            // ---------------------------------------------------------
+            // PRÓLOGO: o frame da nova função começa exatamente onde a
+            // pilha está agora. FP = SP "congela" essa posição, e é a
+            // partir dela que todo acesso a variável local da função
+            // (offset(FP)) vai ser calculado.
+            //
+            // OBS: isso ainda NÃO salva o FP do chamador em memória.
+            // Isso é responsabilidade do Q_CALL (que ainda não está
+            // implementado) -- antes de chegar aqui, quem chama precisa
+            // ter empilhado o FP antigo, porque assim que executarmos
+            // este ADD, o valor anterior de FP é perdido caso não tenha
+            // sido salvo. Para uma função só (ex: main, chamada uma
+            // única vez, sem retorno para ninguém) isso ainda não importa.
+            // ---------------------------------------------------------
+            emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(STACK_POINTER), reg(0));
+            current_line++;
+
             current_fp = current_sp;
+            current_frame_offset = 0;
+
             memset(current_function_scope, 0, SCOPE_NAME_SIZE);
             strcpy(current_function_scope, quad.addr1.value.name);
             break;
         
         case Q_FUNCEND:
-            current_local_offset = 0;
+            // ---------------------------------------------------------
+            // EPÍLOGO: desaloca o frame inteiro de uma vez só, devolvendo
+            // SP para o valor que tinha antes do prólogo (que é exatamente
+            // o que está guardado em FP). Não importa quantas variáveis
+            // locais ou temporários a função declarou -- elas todas somem
+            // juntas aqui.
+            //
+            // OBS: assim como no prólogo, isto ainda não restaura o FP do
+            // CHAMADOR nem faz JR de volta -- isso é trabalho do Q_RETURN/
+            // Q_CALL, que vai precisar ter salvo o FP antigo em algum lugar
+            // antes do prólogo acima sobrescrever o registrador.
+            // ---------------------------------------------------------
+            emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
+            current_line++;
+
+            current_sp = current_fp;
+            current_frame_offset = 0;
+
             memset(current_function_scope, 0, SCOPE_NAME_SIZE);
             strcpy(current_function_scope, "global");       
             break;

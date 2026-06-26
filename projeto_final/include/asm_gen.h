@@ -40,6 +40,11 @@ typedef enum asm_op_type
     ASM_OR,
     ASM_LI,
     ASM_SI,
+    ASM_NEQ,
+    ASM_GT,
+    ASM_GTE,
+    ASM_LT,
+    ASM_LTE
 
 }ASM_OPERATION;
 
