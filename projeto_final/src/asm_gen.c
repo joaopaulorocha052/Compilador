@@ -286,20 +286,34 @@ AsmOperation translate_quad(struct Quadrupla quad)
             // ---------------------------------------------------------
             // PASSO 2: Realizar o salto (Branch)
             // ---------------------------------------------------------
-            // O addr2 guarda o nome da label (como string). Como o seu code_gen.c
-            // gera labels como números (ex: "1", "2"), convertemos para inteiro.
+            // O addr2 guarda o NÚMERO do label (ex: "1", "2"), não a
+            // posição final resolvida. Assim como o Q_GOTO faz com o
+            // JUMP, guardamos aqui o número do label cru -- é o
+            // print_asm_operation (em utils.c) quem resolve
+            // label_position[] na hora de IMPRIMIR, depois que a lista
+            // inteira de quádruplas já foi percorrida e todo
+            // label_position[] já está completo.
+            //
+            // Resolver aqui dentro (como o código fazia antes) quebra
+            // qualquer salto para frente (forward jump): no momento em
+            // que o Q_IF é processado, o label de destino pode ainda
+            // não ter sido visto (Q_LABEL correspondente vem depois na
+            // lista), então label_position[label] ainda não tem o
+            // valor certo. Isso é exatamente o caso de um "while", onde
+            // o Q_IF do topo do loop salta para um label que só é
+            // definido no fim do laço.
             //
             // CORREÇÃO: a quádrupla Q_IF significa "se a condição for
-            // FALSA, salte para a label" -- o bloco "then" vem imediatamente
-            // em sequência depois do Q_IF (sem goto), e a label marca o
-            // início do bloco "else". Então o salto deve ocorrer quando o
-            // valor da condição é 0 (falso), não quando é 1 (verdadeiro).
-            // Como R0 já é fixo em zero no hardware, basta comparar contra
-            // ele direto -- nem precisa de um registrador extra com o "1".
-            int target_label = label_position[quad.addr2.value.int_num]; 
+            // FALSA, salte para a label" -- o bloco "then" (ou corpo,
+            // no caso do while) vem imediatamente em sequência depois
+            // do Q_IF (sem goto), e a label marca o destino do salto
+            // quando a condição é falsa. Como R0 já é fixo em zero no
+            // hardware, basta comparar contra ele direto.
+            int label_number = quad.addr2.value.int_num;
 
-            // Emite: BEQ temp_reg, R0, target_label (salta se condição == falso)
-            emit_operation(ASM_BEQ, reg(temp_reg1), reg(0), num(target_label));
+            // Emite: BEQ temp_reg, R0, label_number (salta se condição == falso)
+            // O 3º operando aqui é o NÚMERO do label, resolvido depois na impressão.
+            emit_operation(ASM_BEQ, reg(temp_reg1), reg(0), num(label_number));
             current_line+=2;
             break;
         case Q_FUNCLABEL:

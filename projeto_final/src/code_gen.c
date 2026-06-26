@@ -219,34 +219,43 @@ char* gen_code(struct ParseTree* tree){
       break;
 
 
-    case WHILE_NODE:
-      int first_label, second_label, third_label;
-      first_label = current_label;
-      second_label = current_label + 1;
-      third_label = current_label + 2;
-      current_label = third_label+1;
+    case WHILE_NODE: {
+      // Mesma semântica de Q_IF usada no IF_NODE: "salte para a label
+      // quando a condição for FALSA". Antes, este WHILE_NODE gerava
+      // Q_IF com a semântica OPOSTA (salta quando verdadeiro), o que
+      // só funcionava porque o asm_gen.c interpretava Q_IF de forma
+      // diferente dependendo de quem chamou -- inconsistência perigosa.
+      // Agora as duas estruturas de controle (if e while) emitem Q_IF
+      // com o mesmo significado, e o asm_gen.c não precisa saber qual
+      // construção C- originou a quádrupla.
+      //
+      // Estrutura gerada:
+      //   L_topo:
+      //     Q_IF cond, L_fim      -> se falso, sai do loop
+      //     <corpo>
+      //     Q_GOTO L_topo         -> reavalia a condição
+      //   L_fim:
+      int topo_label, fim_label;
+      topo_label = current_label++;
+      fim_label = current_label++;
 
-      sprintf(label, "%d", first_label);
+      sprintf(label, "%d", topo_label);
       emit_quad(Q_LABEL, label, "-", "-");
-      sprintf(label, "%d", second_label);
+
+      sprintf(label, "%d", fim_label);
       emit_quad(Q_IF, gen_code(tree->children[0]), label, "-");
-      
 
-      sprintf(label, "%d", third_label);
-      emit_quad(Q_GOTO, label, "-", "-");
-
-      sprintf(label, "%d", second_label);
-      emit_quad(Q_LABEL, label, "-", "-");
       gen_code(tree->children[1]);
 
-      sprintf(label, "%d", first_label);
+      sprintf(label, "%d", topo_label);
       emit_quad(Q_GOTO, label, "-", "-");
 
-      sprintf(label, "%d", third_label);
+      sprintf(label, "%d", fim_label);
       emit_quad(Q_LABEL, label, "-", "-");
-      
+
       gen_code(tree->sibling);
       return NULL;
+    }
 
     case DECL_LIST_NODE:
       for (int i = 0; i < NUM_CHILDREN; i++) {
