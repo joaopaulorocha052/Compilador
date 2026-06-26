@@ -1,10 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <string.h>
 #include "code_gen.h"
+#include "asm_gen.h"
 
 struct QuadrupleList* quadList;
 
+extern int label_position[32];
 struct QuadrupleList* init_list(){
     struct QuadrupleList* list = malloc(sizeof(struct QuadrupleList));
     list->list = NULL;
@@ -108,4 +111,134 @@ const char* quadruple_type_to_string(QUADRUPLE_TYPES type) {
 
         default:            return "UNKNOWN";
     }
+}
+
+
+typedef char binary_repr[33];
+
+void convert_int_to_bin(int num){
+    binary_repr result;
+    memset(result, 0, 33);
+    
+    for(int i=31; i>=0; i--){
+        if(num & (1U << i)){
+            result[31-i] = '1';
+        }else{
+            result[31-i] = '0';
+        }
+    }
+    
+    printf("%s", result);
+    
+}
+
+
+const char* asm_operation_to_string(ASM_OPERATION op) {
+    switch (op) {
+        case ASM_ADD:  return "ADD";
+        case ASM_ADDI: return "ADDI";
+        case ASM_SUB:  return "SUB";
+        case ASM_SUBI: return "SUBI";
+        case ASM_MULT: return "MULT";
+        case ASM_DIV:  return "DIV";
+        case ASM_JUMP: return "JUMP";
+        case ASM_JAL:  return "JAL";
+        case ASM_JR:   return "JR";
+        case ASM_BEQ:  return "BEQ";
+        case ASM_BNE:  return "BNE";
+        case ASM_LW:   return "LW";
+        case ASM_SW:   return "SW";
+        case ASM_AND:  return "AND";
+        case ASM_OR:   return "OR";
+        case ASM_LI:   return "LI";
+        case ASM_SI:   return "SI";
+        case ASM_EQ: return "EQ";
+        default:   return "UNKNOWN_OP";
+    }
+}
+
+void print_operand(AsmOperand op) {
+    if (op.type == ASM_REGISTER) {
+        if (op.operand == FRAME_POINTER) {
+            printf("FP");
+        } else if (op.operand == STACK_POINTER) {
+            printf("SP");
+        } else {
+            printf("R%d", op.operand);
+        }
+    } else if (op.type == ASM_NUMBER) {
+        printf("%d", op.operand);
+    }
+}
+
+void print_asm_operation(AsmOperation op) {
+    printf("%s ", asm_operation_to_string(op.asm_operation_type));
+
+    switch (op.asm_operation_type) {
+        
+        case ASM_ADD:
+        case ASM_SUB:
+        case ASM_MULT:
+        case ASM_DIV:
+        case ASM_AND:
+        case ASM_OR:
+        case ASM_EQ:
+            print_operand(op.operands[0]);
+            printf(", ");
+            print_operand(op.operands[1]);
+            printf(", ");
+            print_operand(op.operands[2]);
+            break;
+
+        case ASM_ADDI:
+        case ASM_SUBI:
+            print_operand(op.operands[0]);
+            printf(", ");
+            print_operand(op.operands[1]);
+            printf(", ");
+            print_operand(op.operands[2]);
+            break;
+
+        case ASM_LI:
+            print_operand(op.operands[0]);
+            printf(", ");
+            print_operand(op.operands[2]);
+            break;
+
+        case ASM_LW:
+        case ASM_SW:
+            print_operand(op.operands[0]);
+            printf(", ");
+            print_operand(op.operands[1]);
+            printf("(");
+            print_operand(op.operands[2]);
+            printf(")");
+            break;
+
+        case ASM_BEQ:
+        case ASM_BNE:
+            print_operand(op.operands[0]);
+            printf(", ");
+            print_operand(op.operands[1]);
+            printf(", ");
+            printf("%d", label_position[op.operands[2].operand]);
+            break;
+
+        case ASM_JUMP:
+        case ASM_JAL:
+        case ASM_JR:
+            // print_operand(op.operands[2]);
+            printf("%d", label_position[op.operands[2].operand]);
+            break;
+
+        default:
+            print_operand(op.operands[0]);
+            printf(", ");
+            print_operand(op.operands[1]);
+            printf(", ");
+            print_operand(op.operands[2]);
+            break;
+    }
+    
+    printf("\n");
 }

@@ -10,8 +10,8 @@
     #include "lexer.h"
     #include "parse.h"   
     #define YYSTYPE struct ParseTree*
-    #define SCOPE_NAME_SIZE 100
     #include "symbol_table.h"
+    #include "utils.h"
 
     int error_num = 0;
     int last_syntax_error_line = -1;
