@@ -11,6 +11,9 @@ typedef struct LineList LineList;
 typedef enum {VAR, FUNC} ExpKind;
 typedef enum {INT_EXP, VOID_EXP} ExpType;
 
+
+typedef int mem_offset_t;
+
 struct LineList{
     int line_num;
     LineList* next_line;
@@ -22,6 +25,7 @@ struct HashItem{
     ExpType type;
     ExpKind kind;
     int qnt_param;
+    mem_offset_t stack_pointer_offset;  
     LineList* lines;
     HashItem* next_item;
 };
@@ -44,6 +48,7 @@ HashItem* search_item(HashTable* table, char* value, char* scope);
 void print_table(HashTable* table);
 const char* kind_to_string(ExpKind kind);
 const char* type_to_string(ExpType type);
+void add_offset_to_symbol(HashTable* table, char* value, char*scope, mem_offset_t current_symbol_offset);
 
 
 

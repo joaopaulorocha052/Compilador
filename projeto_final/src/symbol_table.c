@@ -184,6 +184,37 @@ HashItem* search_item(HashTable* table, char* value, char* scope){
     return NULL;
 }
 
+void add_offset_to_symbol(HashTable* table, char* value, char*scope, mem_offset_t current_symbol_offset)
+{
+    HashItem* temp = search_item(table, value, scope); 
+    if( temp != NULL){
+        temp->stack_pointer_offset=current_symbol_offset;
+    }
+    return;
+}
+
+mem_offset_t get_symbol_offset(HashTable* table, char* value, char*scope)
+{
+    HashItem* temp;
+
+    temp = search_item(table, value, scope);
+
+    if(temp != NULL)
+    {
+        return temp->stack_pointer_offset;
+    }
+
+    temp = search_item(table, value, "global");
+
+    if(temp != NULL)
+    {
+        return temp->stack_pointer_offset;
+    }
+
+
+    return NULL;
+}
+
 const char* kind_to_string(ExpKind kind){
     switch (kind)
     {
