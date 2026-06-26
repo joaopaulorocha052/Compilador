@@ -100,9 +100,9 @@ char* gen_code(struct ParseTree* tree){
 
   if(tree == NULL) return NULL;
 
-  char value1[16], value2[16], value3[16], label[4]; 
+  char value1[16], value2[16], value3[16], label[16]; 
   char temp1[16];
-  char* temp_name = malloc(4);
+  char* temp_name = malloc(16);
   ADDR_TYPES value1_type, value2_type, value3_type;
 
   switch(tree->node_type){
@@ -154,6 +154,12 @@ char* gen_code(struct ParseTree* tree){
       int temporary = temporary_variable++;
       sprintf(temp_name, "_t%d", temporary);
 
+      // Temporários também precisam de espaço alocado na pilha/memória,
+      // assim como uma variável declarada pelo usuário. Sem isso, o
+      // asm_gen não tem como saber o offset de "_tN" e ele acaba
+      // colidindo com o offset 0 (padrão) de outra variável.
+      emit_quad(Q_INIT, temp_name, "-", "-");
+
       emit_quad(token_to_quad(tree->children[1]->node_value.op_value), temp_name, gen_code(tree->children[0]), gen_code(tree->children[2]));
       gen_code(tree->sibling);
       return temp_name;
@@ -193,6 +199,10 @@ char* gen_code(struct ParseTree* tree){
       }
     
       sprintf(temp_name, "_t%d", temporary_variable++);
+
+      // Mesmo motivo do OP_NODE: "_tN" precisa de offset alocado antes
+      // de Q_CALL escrever o valor de retorno nele.
+      emit_quad(Q_INIT, temp_name, "-", "-");
 
       emit_quad(Q_CALL, tree->children[0]->node_value.id_name, temp_name, "-");
       gen_code(tree->sibling);
@@ -246,4 +256,3 @@ char* gen_code(struct ParseTree* tree){
       return NULL;
     }
 }
-
