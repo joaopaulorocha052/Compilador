@@ -8,6 +8,10 @@
 struct QuadrupleList* quadList;
 
 extern int label_position[32];
+// 100 precisa bater com MAX_OPERATION definido em asm_gen.c -- não está
+// num header compartilhado hoje, então se um dia mudar lá, precisa
+// mudar aqui também.
+extern int call_target[100];
 struct QuadrupleList* init_list(){
     struct QuadrupleList* list = malloc(sizeof(struct QuadrupleList));
     list->list = NULL;
@@ -107,6 +111,7 @@ const char* quadruple_type_to_string(QUADRUPLE_TYPES type) {
         case Q_RETURN:      return "Q_RETURN";
         case Q_HALT:        return "Q_HALT";
         case Q_PARAM:       return "Q_PARAM";
+        case Q_PARAM_END:   return "Q_PARAM_END";
         case Q_LABEL:       return "Q_LABEL";
 
         default:            return "UNKNOWN";
@@ -168,7 +173,10 @@ void print_operand(AsmOperand op) {
             printf("FP");
         } else if (op.operand == STACK_POINTER) {
             printf("SP");
-        } else {
+        } else if(op.operand == RETURN_ADDRESS_POINTER){
+            printf("RA");
+        }
+        else {
             printf("R%d", op.operand);
         }
     } else if (op.type == ASM_NUMBER) {
@@ -235,10 +243,31 @@ void print_asm_operation(AsmOperation op) {
             break;
 
         case ASM_JUMP:
-        case ASM_JAL:
-        case ASM_JR:
-            // print_operand(op.operands[2]);
+            // JUMP recebe um número de label como operando -- resolvido
+            // contra label_position[] (usado por if/while/goto). O
+            // índice 0 do programa inteiro é especial: é o JUMP inicial
+            // para 'main' emitido por asm_gen(), que reserva
+            // label_position[31] só para isso (ver asm_gen()).
             printf("%d", label_position[op.operands[2].operand]);
+            break;
+
+        case ASM_JAL:
+            // JAL recebe um índice em call_target[] (não em
+            // label_position[]) -- cada Q_CALL tem seu PRÓPRIO slot
+            // (ver asm_gen.c: call_target[call_count]), porque múltiplas
+            // chamadas de função no mesmo programa não podem
+            // compartilhar um único índice (a resolução só acontece na
+            // impressão, depois que toda a lista já foi processada).
+            printf("%d", call_target[op.operands[2].operand]);
+            break;
+
+        case ASM_JR:
+            // JR salta para o endereço guardado NUM REGISTRADOR (ver
+            // Processador.v: reg_or_im seleciona ula_1, que é
+            // registers[src1], quando a instrução é JR). Não é um
+            // número de label -- é um registrador de verdade, então
+            // precisa ser impresso como tal.
+            print_operand(op.operands[0]);
             break;
 
         default:

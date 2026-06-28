@@ -8,9 +8,9 @@
 #define MAX_NUM_REGISTER 32
 #endif
 
-#define RETURN_ADDRESS_POINTER MAX_NUM_REGISTER
-#define STACK_POINTER MAX_NUM_REGISTER-1
-#define FRAME_POINTER MAX_NUM_REGISTER-2
+#define RETURN_ADDRESS_POINTER MAX_NUM_REGISTER-1 
+#define STACK_POINTER MAX_NUM_REGISTER-2
+#define FRAME_POINTER MAX_NUM_REGISTER-3
 
 
 
@@ -28,6 +28,11 @@ typedef enum asm_op_type
     ASM_SUBI,
     ASM_MULT,
     ASM_EQ,
+    ASM_NEQ,
+    ASM_GT,
+    ASM_GTE,
+    ASM_LT,
+    ASM_LTE,
     ASM_DIV,
     ASM_JUMP,
     ASM_JAL,
@@ -40,11 +45,8 @@ typedef enum asm_op_type
     ASM_OR,
     ASM_LI,
     ASM_SI,
-    ASM_NEQ,
-    ASM_GT,
-    ASM_GTE,
-    ASM_LT,
-    ASM_LTE
+    ASM_NOP,
+    ASM_HALT
 
 }ASM_OPERATION;
 

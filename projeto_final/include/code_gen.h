@@ -27,6 +27,7 @@ typedef enum {
     Q_CALL,
     Q_ARG,
     Q_PARAM,
+    Q_PARAM_END,
     Q_RETURN,
     Q_FUNCLABEL,
     Q_FUNCEND,

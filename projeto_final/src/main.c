@@ -3,6 +3,8 @@
 #include "code_gen.h"
 #include "symbol_table.h"
 #include "utils.h"
+#include "asm_gen.h"
+#include "bin_gen.h"
 #include "../get_opt/options.h"
 
 
@@ -15,6 +17,14 @@ extern char* temp_name_buffer;
 extern char* token_string;
 extern int lineno;
 extern struct QuadrupleList* quadList;
+
+/* Populados por asm_gen() (definidos em asm_gen.c) -- usados aqui para
+ * traduzir o assembly já montado direto para binario, sem reanalisar
+ * texto. */
+extern AsmOperation operation_list[];
+extern int current_list_position;
+extern int label_position[];
+extern int call_target[];
 
 int flex_flag;
 
@@ -48,6 +58,27 @@ int main(int argc, char *argv[]){
     print_list(quadList);
 
     asm_gen(quadList);
+
+    /* Traduz a lista de AsmOperation (ja montada por asm_gen() acima)
+     * direto para binario, gerando as duas versoes: limpa (so os
+     * bits, pronta para $readmemb / memoria_instrucao_arquivo.v) e
+     * comentada (cada instrucao com o assembly correspondente, bits
+     * agrupados e valor hex). */
+    FILE* bin_clean = fopen("programa.bin.txt", "w");
+    if (bin_clean != NULL) {
+        bin_gen_write_clean(operation_list, current_list_position, label_position, call_target, bin_clean);
+        fclose(bin_clean);
+    } else {
+        printf("ERRO: nao foi possivel criar programa.bin.txt\n");
+    }
+
+    FILE* bin_commented = fopen("programa_comentado.bin.txt", "w");
+    if (bin_commented != NULL) {
+        bin_gen_write_commented(operation_list, current_list_position, label_position, call_target, bin_commented);
+        fclose(bin_commented);
+    } else {
+        printf("ERRO: nao foi possivel criar programa_comentado.bin.txt\n");
+    }
 
     fclose(file);
     free(temp_name_buffer);
