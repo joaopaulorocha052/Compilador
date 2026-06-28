@@ -154,10 +154,6 @@ char* gen_code(struct ParseTree* tree){
       int temporary = temporary_variable++;
       sprintf(temp_name, "_t%d", temporary);
 
-      // Temporários também precisam de espaço alocado na pilha/memória,
-      // assim como uma variável declarada pelo usuário. Sem isso, o
-      // asm_gen não tem como saber o offset de "_tN" e ele acaba
-      // colidindo com o offset 0 (padrão) de outra variável.
       emit_quad(Q_INIT, temp_name, "-", "-");
 
       emit_quad(token_to_quad(tree->children[1]->node_value.op_value), temp_name, gen_code(tree->children[0]), gen_code(tree->children[2]));
@@ -165,24 +161,13 @@ char* gen_code(struct ParseTree* tree){
       return temp_name;
 
     case FUNC_PARAM_NODE: {
-      // children[0] é o primeiro parâmetro formal (um VAR_NODE),
-      // encadeado via sibling para os demais (ver param-lista em
-      // sintatico.y). Cada parâmetro já foi inserido na tabela de
-      // símbolos durante a fase sintática (com o escopo da função),
-      // mas nunca passa por Q_INIT -- sem isso, asm_gen.c não tem como
-      // saber em que offset cada parâmetro vive dentro do frame da
-      // função. Emitindo Q_INIT aqui, na ordem de declaração, eles
-      // recebem offsets 0, 1, 2... automaticamente, do mesmo jeito que
-      // qualquer variável local declarada no corpo da função.
+
       struct ParseTree* param = tree->children[0];
       while (param != NULL) {
         emit_quad(Q_INIT, param->children[0]->node_value.id_name, "-", "-");
         param = param->sibling;
       }
-      // Marca o fim da lista de parâmetros -- é o sinal para
-      // asm_gen.c reservar o slot do valor de retorno EXATAMENTE
-      // aqui, antes de qualquer variável local/temporário do corpo
-      // ocupar esse offset (ver case Q_PARAM_END em asm_gen.c).
+
       emit_quad(Q_PARAM_END, "-", "-", "-");
       return NULL;
     }
@@ -223,8 +208,7 @@ char* gen_code(struct ParseTree* tree){
     
       sprintf(temp_name, "_t%d", temporary_variable++);
 
-      // Mesmo motivo do OP_NODE: "_tN" precisa de offset alocado antes
-      // de Q_CALL escrever o valor de retorno nele.
+
       emit_quad(Q_INIT, temp_name, "-", "-");
 
       emit_quad(Q_CALL, tree->children[0]->node_value.id_name, temp_name, "-");
@@ -234,20 +218,11 @@ char* gen_code(struct ParseTree* tree){
     case FUNC_NODE:
       emit_quad(Q_FUNCLABEL, tree->children[0]->node_value.id_name, "-", "-");
 
-      // children[1] só é um FUNC_PARAM_NODE de verdade quando a função
-      // declara parâmetros (params: param-lista). Quando a função é
-      // declarada void (sem parâmetros), children[1] pode ser NULL ou
-      // não ser um FUNC_PARAM_NODE -- nesse caso simplesmente não há
-      // nada para processar aqui (gen_code não tem um case genérico
-      // para outros tipos de nó, então chamá-lo às ciegas seria
-      // comportamento indefinido).
+
       if (tree->children[1] != NULL && tree->children[1]->node_type == FUNC_PARAM_NODE) {
         gen_code(tree->children[1]);
       } else {
-        // Mesmo sem parâmetros, Q_PARAM_END precisa ser emitido --
-        // asm_gen.c depende dela existir SEMPRE para reservar o slot
-        // do valor de retorno no offset certo (ver case Q_PARAM_END
-        // em asm_gen.c). Funções void sem parâmetros caem aqui.
+
         emit_quad(Q_PARAM_END, "-", "-", "-");
       }
 
@@ -259,21 +234,7 @@ char* gen_code(struct ParseTree* tree){
 
 
     case WHILE_NODE: {
-      // Mesma semântica de Q_IF usada no IF_NODE: "salte para a label
-      // quando a condição for FALSA". Antes, este WHILE_NODE gerava
-      // Q_IF com a semântica OPOSTA (salta quando verdadeiro), o que
-      // só funcionava porque o asm_gen.c interpretava Q_IF de forma
-      // diferente dependendo de quem chamou -- inconsistência perigosa.
-      // Agora as duas estruturas de controle (if e while) emitem Q_IF
-      // com o mesmo significado, e o asm_gen.c não precisa saber qual
-      // construção C- originou a quádrupla.
-      //
-      // Estrutura gerada:
-      //   L_topo:
-      //     Q_IF cond, L_fim      -> se falso, sai do loop
-      //     <corpo>
-      //     Q_GOTO L_topo         -> reavalia a condição
-      //   L_fim:
+
       int topo_label, fim_label;
       topo_label = current_label++;
       fim_label = current_label++;

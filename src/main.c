@@ -18,9 +18,7 @@ extern char* token_string;
 extern int lineno;
 extern struct QuadrupleList* quadList;
 
-/* Populados por asm_gen() (definidos em asm_gen.c) -- usados aqui para
- * traduzir o assembly já montado direto para binario, sem reanalisar
- * texto. */
+
 extern AsmOperation operation_list[];
 extern int current_list_position;
 extern int label_position[];
@@ -59,11 +57,6 @@ int main(int argc, char *argv[]){
 
     asm_gen(quadList);
 
-    /* Traduz a lista de AsmOperation (ja montada por asm_gen() acima)
-     * direto para binario, gerando as duas versoes: limpa (so os
-     * bits, pronta para $readmemb / memoria_instrucao_arquivo.v) e
-     * comentada (cada instrucao com o assembly correspondente, bits
-     * agrupados e valor hex). */
     FILE* bin_clean = fopen("programa.bin.txt", "w");
     if (bin_clean != NULL) {
         bin_gen_write_clean(operation_list, current_list_position, label_position, call_target, bin_clean);
