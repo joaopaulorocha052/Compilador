@@ -246,24 +246,33 @@ AsmOperation translate_quad(struct Quadrupla quad)
 
             int new_reg = get_new_register();
             mem_offset_t offset = get_symbol_offset(table, quad.addr1.value.name, current_function_scope);
+            mem_offset_t vector_offset = 0;
 
             if(quad.addr2.type == NAME) {
-
-                int source_pointer;
-                HashItem* source_hash_item = search_item(table, quad.addr2.value.name, current_function_scope);
-
-                if(source_hash_item != NULL) {
-                    source_pointer = FRAME_POINTER;
-                } else {
-                    source_pointer = 0;
+                if(quad.addr3.type != VAZIO){
+                    int source_pointer;
+                    HashItem* source_hash_item = search_item(table, quad.addr2.value.name, current_function_scope);
+    
+                    if(source_hash_item != NULL) {
+                        source_pointer = FRAME_POINTER;
+                    } else {
+                        source_pointer = 0;
+                    }
+    
+                    mem_offset_t assign_offset = get_symbol_offset(table, quad.addr2.value.name, current_function_scope);
+    
+                    emit_operation(ASM_LW, reg(new_reg), reg(source_pointer), num(assign_offset));
+                    emit_operation(ASM_SW, reg(new_reg), reg(current_pointer), num(offset));
                 }
 
-                mem_offset_t assign_offset = get_symbol_offset(table, quad.addr2.value.name, current_function_scope);
+                else{
+                    
+                }
 
-                emit_operation(ASM_LW, reg(new_reg), reg(source_pointer), num(assign_offset));
-                emit_operation(ASM_SW, reg(new_reg), reg(current_pointer), num(offset));
+
+
             } else {
-
+                
                 emit_operation(ASM_ADDI, reg(new_reg), reg(0), num(quad.addr2.value.int_num));
                 emit_operation(ASM_SW, reg(new_reg), reg(current_pointer), num(offset));
             }

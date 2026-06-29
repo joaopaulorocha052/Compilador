@@ -48,10 +48,10 @@ int emit_quad(QUADRUPLE_TYPES quad_type, char* first_value, char* second_value, 
       };
 
     }else{
-      addrs[i] = (struct ADDR){
-        .type = NAME,
-        .value.name = value_list[i]
-      };
+        addrs[i] = (struct ADDR){
+          .type = strcmp(value_list[i], "-") == 0 ? VAZIO : NAME,
+          .value.name = value_list[i]
+        };
     }
   }
 
@@ -140,8 +140,10 @@ char* gen_code(struct ParseTree* tree){
       else{
         char size[1];
         char *temp_return = malloc(16);
-
-        sprintf(temp_return, "%s[%s]", tree->children[0]->node_value.id_name, gen_code(tree->children[1]));
+        int t = temporary_variable++;
+        sprintf(temp_return, "_t%d", t);
+        emit_quad(Q_INIT, temp_return, "-", "-");
+        emit_quad(Q_ASSIGN, temp_return, tree->children[0]->node_value.id_name, gen_code(tree->children[1]));
         return temp_return;
         
       }
