@@ -3,6 +3,7 @@
 
 
 extern int temporary_variable;
+typedef int vec_index_t;
 
 typedef enum {
     Q_SOMA = 0,
@@ -49,8 +50,9 @@ union ADDRESS{
 struct ADDR{
   ADDR_TYPES type;
   union ADDRESS value;
-   
+  vec_index_t vector_index;
 };
+
 struct Quadrupla{
   QUADRUPLE_TYPES type;
   struct ADDR addr1, addr2, addr3;

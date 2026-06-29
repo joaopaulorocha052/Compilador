@@ -237,48 +237,67 @@ AsmOperation translate_quad(struct Quadrupla quad)
         case Q_ASSIGN: {
             int current_pointer;
             HashItem* temp_hash_item = search_item(table, quad.addr1.value.name, current_function_scope);
-
+ 
             if(temp_hash_item != NULL) {
                 current_pointer = FRAME_POINTER;
             } else {
                 current_pointer = 0;
             }
-
+ 
             int new_reg = get_new_register();
             mem_offset_t offset = get_symbol_offset(table, quad.addr1.value.name, current_function_scope);
-            mem_offset_t vector_offset = 0;
-
+ 
             if(quad.addr2.type == NAME) {
                 if(quad.addr3.type != VAZIO){
+ 
+                    HashItem* source_hash_item = search_item(table, quad.addr2.value.name, current_function_scope);
+                    int source_pointer = (source_hash_item != NULL) ? FRAME_POINTER : 0;
+                    mem_offset_t vet_offset = get_symbol_offset(table, quad.addr2.value.name, current_function_scope);
+ 
+                    int base_reg = get_new_register();
+                    emit_operation(ASM_ADDI, reg(base_reg), reg(source_pointer), num(vet_offset));
+ 
+                    int index_reg = get_new_register();
+                    if (quad.addr3.type == INT_NUM) {
+                        emit_operation(ASM_ADDI, reg(index_reg), reg(0), num(quad.addr3.value.int_num));
+                    } else {
+                        HashItem* index_hash_item = search_item(table, quad.addr3.value.name, current_function_scope);
+                        int index_pointer = (index_hash_item != NULL) ? FRAME_POINTER : 0;
+                        mem_offset_t index_offset = get_symbol_offset(table, quad.addr3.value.name, current_function_scope);
+                        emit_operation(ASM_LW, reg(index_reg), reg(index_pointer), num(index_offset));
+                    }
+ 
+                    int addr_reg = get_new_register();
+                    emit_operation(ASM_ADD, reg(addr_reg), reg(base_reg), reg(index_reg));
+ 
+                    emit_operation(ASM_LW, reg(new_reg), reg(addr_reg), num(0));
+                    emit_operation(ASM_SW, reg(new_reg), reg(current_pointer), num(offset));
+                }
+                else{
+ 
                     int source_pointer;
                     HashItem* source_hash_item = search_item(table, quad.addr2.value.name, current_function_scope);
-    
+ 
                     if(source_hash_item != NULL) {
                         source_pointer = FRAME_POINTER;
                     } else {
                         source_pointer = 0;
                     }
-    
+ 
                     mem_offset_t assign_offset = get_symbol_offset(table, quad.addr2.value.name, current_function_scope);
-    
+ 
                     emit_operation(ASM_LW, reg(new_reg), reg(source_pointer), num(assign_offset));
                     emit_operation(ASM_SW, reg(new_reg), reg(current_pointer), num(offset));
                 }
-
-                else{
-                    
-                }
-
-
-
             } else {
-                
+ 
                 emit_operation(ASM_ADDI, reg(new_reg), reg(0), num(quad.addr2.value.int_num));
                 emit_operation(ASM_SW, reg(new_reg), reg(current_pointer), num(offset));
             }
-
+ 
             break;
         }
+
 
         case Q_SOMA:
             emit_binary_op(ASM_ADD, quad);
