@@ -46,7 +46,8 @@ typedef enum asm_op_type
     ASM_LI,
     ASM_SI,
     ASM_NOP,
-    ASM_HALT
+    ASM_HALT,
+    ASM_FUNC
 
 }ASM_OPERATION;
 

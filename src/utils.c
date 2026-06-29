@@ -161,6 +161,9 @@ const char* asm_operation_to_string(ASM_OPERATION op) {
         case ASM_GTE:  return "GTE";
         case ASM_LT:   return "LT";
         case ASM_LTE:  return "LTE";
+        case ASM_FUNC: return "\nFUNC:";
+        case ASM_HALT: return "HALT";
+        case ASM_NOP: return "NOP";
         default:   return "UNKNOWN_OP";
     }
 }
@@ -253,11 +256,11 @@ void print_asm_operation(AsmOperation op) {
             break;
 
         default:
-            print_operand(op.operands[0]);
-            printf(", ");
-            print_operand(op.operands[1]);
-            printf(", ");
-            print_operand(op.operands[2]);
+            // print_operand(op.operands[0]);
+            // printf(", ");
+            // print_operand(op.operands[1]);
+            // printf(", ");
+            // print_operand(op.operands[2]);
             break;
     }
     
