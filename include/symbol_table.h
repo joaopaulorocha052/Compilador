@@ -49,7 +49,7 @@ void print_table(HashTable* table);
 const char* kind_to_string(ExpKind kind);
 const char* type_to_string(ExpType type);
 void add_offset_to_symbol(HashTable* table, char* value, char*scope, mem_offset_t current_symbol_offset);
-
+mem_offset_t get_symbol_offset(HashTable* table, char* value, char*scope);
 
 
 #endif

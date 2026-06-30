@@ -160,7 +160,7 @@ param:  tipo-especificador ID {$$ = create_var_node(create_id_node(token_string)
                 insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, INT_EXP, 0);
             }
         }
-        | tipo-especificador ID LCOLCH RCOLCH{$$ = create_var_node(create_id_node(token_string), NULL);
+        | tipo-especificador ID LCOLCH RCOLCH{$$ = create_vet_param_node(create_id_node(token_string));
             if($1->node_value.op_value == VOID){
                 insert_item(table, $$->children[0]->node_value.id_name, scope, $$->children[0]->line_num, VAR, VOID_EXP, 0);
             } else {
@@ -244,8 +244,16 @@ retorno-decl: RETURN SEMI { $$ = create_return_node(NULL); }
               | RETURN expressao SEMI { $$ = create_return_node($2);};
 
 expressao: var ASSIGN expressao {
-                $$ = create_assign_node($1, $3);
-                procura_func_act($3,0);
+                struct ParseTree* temp = $1;
+
+                if(temp->node_type == VET_NODE){
+                    $$ = create_vet_assign_node($1, $2, $3);
+                    procura_func_act($3,0);
+                }else{
+
+                    $$ = create_assign_node($1, $3);
+                    procura_func_act($3,0);
+                }
             }
           | simples-expressao { $$ = $1; };
 
@@ -266,7 +274,7 @@ var: ID {
         }
     }
      | ID {temp_name_buffer = strdup(token_string);} LCOLCH expressao RCOLCH {
-        $$ = create_var_node(create_id_node(temp_name_buffer), $4);
+        $$ = create_vet_node(create_id_node(temp_name_buffer), $4);
         HashItem* item = search_item(table,  $$->children[0]->node_value.id_name, scope);
         if(item == NULL){
             item = search_item(table,  $$->children[0]->node_value.id_name, "global");
@@ -422,6 +430,15 @@ void print_tree(struct ParseTree* tree, int level){
         case VAR_NODE:
             printf("VAR_NODE\n");
             break;
+        case VET_NODE:
+            printf("VET_NODE\n");
+            break;
+        case VET_DECL_NODE:
+            printf("VET_DECL_NODE\n");
+            break;
+        case VET_ASSIGN_NODE:
+            printf("VET_ASSIGN_NODE\n");
+            break;
         case ARGS_NODE:
             printf("ARGS_NODE\n");
             break;
@@ -454,6 +471,9 @@ void print_tree(struct ParseTree* tree, int level){
             break;
     case VAR_DECL_NODE:
             printf("VAR_DECL_NODE:\n");
+            break;
+        case VET_PARAM_NODE:
+            printf("VET_PARAM_NODE:\n");
             break;
         default:
             printf("Unknown Node: %d\n", tree->node_type);
@@ -544,6 +564,25 @@ static void free_node(struct ParseTree* node){
     if(node->node_type == ID_NODE) free(node->node_value.id_name);
 
     free(node);
+}
+
+struct ParseTree* create_vet_node(struct ParseTree* first_child, struct ParseTree* second_child)
+{
+    struct ParseTree* node = allocate_node(VET_NODE);
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+
+    return node;
+}
+
+struct ParseTree* create_vet_param_node(struct ParseTree* first_child)
+{
+    struct ParseTree* node = allocate_node(VET_PARAM_NODE);
+
+    node->children[0] = first_child;
+
+    return node;
 }
 
 static struct ParseTree* allocate_node(NodeType type){
@@ -718,6 +757,18 @@ struct ParseTree* create_assign_node(struct ParseTree* first_child, struct Parse
 
     node->children[0] = first_child;
     node->children[1] = second_child;
+
+    return node;
+}
+
+struct ParseTree* create_vet_assign_node(struct ParseTree* first_child, struct ParseTree* second_child, struct ParseTree* third_child){
+    // first child - variable id | second child - expressão
+    struct ParseTree* node = allocate_node(VET_ASSIGN_NODE);
+
+
+    node->children[0] = first_child;
+    node->children[1] = second_child;
+    node->children[2] = third_child;
 
     return node;
 }

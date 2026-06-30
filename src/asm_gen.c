@@ -298,7 +298,40 @@ AsmOperation translate_quad(struct Quadrupla quad)
             break;
         }
 
+        case Q_ASSIGN_VET: {
+            HashItem* vet_hash_item = search_item(table, quad.addr1.value.name, current_function_scope);
+            int vet_base = (vet_hash_item != NULL) ? FRAME_POINTER : 0;
+            mem_offset_t vet_offset = get_symbol_offset(table, quad.addr1.value.name, current_function_scope);
 
+            int base_reg = get_new_register();
+            emit_operation(ASM_ADDI, reg(base_reg), reg(vet_base), num(vet_offset));
+
+            int index_reg = get_new_register();
+            if (quad.addr2.type == INT_NUM) {
+                emit_operation(ASM_ADDI, reg(index_reg), reg(0), num(quad.addr2.value.int_num));
+            } else {
+                HashItem* idx_item = search_item(table, quad.addr2.value.name, current_function_scope);
+                int idx_base = (idx_item != NULL) ? FRAME_POINTER : 0;
+                mem_offset_t idx_offset = get_symbol_offset(table, quad.addr2.value.name, current_function_scope);
+                emit_operation(ASM_LW, reg(index_reg), reg(idx_base), num(idx_offset));
+            }
+
+            int addr_reg = get_new_register();
+            emit_operation(ASM_ADD, reg(addr_reg), reg(base_reg), reg(index_reg));
+
+            int val_reg = get_new_register();
+            if (quad.addr3.type == INT_NUM) {
+                emit_operation(ASM_ADDI, reg(val_reg), reg(0), num(quad.addr3.value.int_num));
+            } else {
+                HashItem* val_item = search_item(table, quad.addr3.value.name, current_function_scope);
+                int val_base = (val_item != NULL) ? FRAME_POINTER : 0;
+                mem_offset_t val_offset = get_symbol_offset(table, quad.addr3.value.name, current_function_scope);
+                emit_operation(ASM_LW, reg(val_reg), reg(val_base), num(val_offset));
+            }
+
+            emit_operation(ASM_SW, reg(val_reg), reg(addr_reg), num(0));
+            break;
+        }
         case Q_SOMA:
             emit_binary_op(ASM_ADD, quad);
             break;
@@ -500,13 +533,43 @@ void asm_gen(struct QuadrupleList* list)
     int startup_jump_index = current_list_position;
     emit_operation(ASM_JUMP, num(0), num(0), num(0));
 
+    // CORREÇÃO: variáveis GLOBAIS precisam ter seu espaço reservado
+    // ANTES de output/input serem geradas -- não depois. output/input
+    // são tratadas como funções normais: ao "retornar" (fim de sua
+    // definição), seu epílogo faz current_sp = current_fp, resetando
+    // a contagem de volta a 0 (correto para uma função qualquer, cujo
+    // frame não precisa permanecer reservado depois que ela é
+    // definida). Isso significa que NADA do espaço usado por
+    // output/input fica permanentemente ocupado -- e se globais
+    // fossem registradas depois, elas começariam do offset 0 de novo,
+    // colidindo com o frame que output/input usam toda vez que são
+    // CHAMADAS em runtime (diferente de quando são definidas).
+    //
+    // A ordem certa: processar as quádruplas globais (que aparecem
+    // antes do primeiro Q_FUNCLABEL na lista do usuário) PRIMEIRO,
+    // avançando current_sp/current_local_offset de verdade -- esse
+    // avanço nunca é desfeito, porque não há prólogo/epílogo de
+    // função envolvido, só ADDI direto. Só depois output/input nascem
+    // com current_fp = current_sp já avançado pelas globais, e seus
+    // frames passam a ocupar espaço que nunca mais será usado por
+    // mais nada.
+    struct ListNode* global_node = list->list;
+    while (global_node != NULL && global_node->quad.type != Q_FUNCLABEL) {
+        translate_quad(global_node->quad);
+        global_node = global_node->next;
+    }
+
     emit_output_function();
     emit_input_function();
 
     label_position[30] = current_list_position;
     operation_list[startup_jump_index].operands[2] = num(30);
 
-    struct ListNode* node = list->list;
+    // Continua a partir de onde o pré-processamento das globais
+    // parou (no primeiro Q_FUNCLABEL, ou NULL se não houver nenhuma
+    // função) -- as quádruplas globais já foram processadas acima,
+    // não devem ser processadas de novo aqui.
+    struct ListNode* node = global_node;
     int jump_inserted = 0;
     int jump_index = -1;
 

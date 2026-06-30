@@ -13,6 +13,7 @@ int current_label = 0;
 
 extern struct QuadrupleList* quadList;
 extern struct HashTable* table;
+char current_scope[32];
 
 
 static struct Quadrupla create_quad(QUADRUPLE_TYPES quad_type,
@@ -120,11 +121,24 @@ char* gen_code(struct ParseTree* tree){
     case ASSIGN_NODE:
       emit_quad(Q_ASSIGN, tree->children[0]->children[0]->node_value.id_name, gen_code(tree->children[1]), "-");
       gen_code(tree->sibling);
+      return NULL;
 
+    case VET_ASSIGN_NODE:
+      emit_quad(Q_ASSIGN_VET,
+                tree->children[0]->children[0]->node_value.id_name,
+                gen_code(tree->children[0]->children[1]),
+                gen_code(tree->children[2]));
+      gen_code(tree->sibling);
       return NULL;
 
     case VAR_DECL_NODE: 
       emit_quad(Q_INIT, tree->children[0]->node_value.id_name, "-", "-");
+      gen_code(tree->sibling);
+      return NULL;
+    
+    case VET_PARAM_NODE: 
+
+      emit_quad(Q_INITVET, tree->children[0]->node_value.id_name, "10", "-");
       gen_code(tree->sibling);
       return NULL;
 
@@ -136,17 +150,20 @@ char* gen_code(struct ParseTree* tree){
 
     case VAR_NODE:
       
-      if(tree->children[1] == NULL) return tree->children[0]->node_value.id_name;
-      else{
-        char size[1];
-        char *temp_return = malloc(16);
-        int t = temporary_variable++;
-        sprintf(temp_return, "_t%d", t);
-        emit_quad(Q_INIT, temp_return, "-", "-");
-        emit_quad(Q_ASSIGN, temp_return, tree->children[0]->node_value.id_name, gen_code(tree->children[1]));
-        return temp_return;
-        
+      if(tree->children[1] == NULL) 
+      {
+        return tree->children[0]->node_value.id_name;
       }
+      break;
+
+    case VET_NODE:
+      char *temp_return = malloc(16);
+      int temp_var = temporary_variable++;
+      sprintf(temp_return, "_t%d", temp_var);
+      emit_quad(Q_INIT, temp_return, "-", "-");
+      emit_quad(Q_ASSIGN, temp_return, tree->children[0]->node_value.id_name, gen_code(tree->children[1]));
+      return temp_return;
+
 
     case ID_NODE:
       return tree->children[0]->node_value.id_name;
@@ -166,7 +183,9 @@ char* gen_code(struct ParseTree* tree){
 
       struct ParseTree* param = tree->children[0];
       while (param != NULL) {
-        emit_quad(Q_INIT, param->children[0]->node_value.id_name, "-", "-");
+        if(param->node_type == VET_PARAM_NODE) emit_quad(Q_INITVET, param->children[0]->node_value.id_name, "10", "-");
+        else emit_quad(Q_INIT, param->children[0]->node_value.id_name, "-", "-");
+
         param = param->sibling;
       }
 
@@ -219,7 +238,6 @@ char* gen_code(struct ParseTree* tree){
 
     case FUNC_NODE:
       emit_quad(Q_FUNCLABEL, tree->children[0]->node_value.id_name, "-", "-");
-
 
       if (tree->children[1] != NULL && tree->children[1]->node_type == FUNC_PARAM_NODE) {
         gen_code(tree->children[1]);
