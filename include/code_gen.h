@@ -19,6 +19,7 @@ typedef enum {
     Q_ASSIGN, // x
     Q_ASSIGN_VET,
     Q_ACCESS_VET,
+    Q_PARAM_VET,
     Q_IF,
     Q_GOTO,
     Q_LABEL,

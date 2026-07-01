@@ -138,7 +138,7 @@ char* gen_code(struct ParseTree* tree){
     
     case VET_PARAM_NODE: 
 
-      emit_quad(Q_INITVET, tree->children[0]->node_value.id_name, "10", "-");
+      emit_quad(Q_PARAM_VET, tree->children[0]->node_value.id_name, "-", "-");
       gen_code(tree->sibling);
       return NULL;
 
@@ -183,7 +183,7 @@ char* gen_code(struct ParseTree* tree){
 
       struct ParseTree* param = tree->children[0];
       while (param != NULL) {
-        if(param->node_type == VET_PARAM_NODE) emit_quad(Q_INITVET, param->children[0]->node_value.id_name, "10", "-");
+        if(param->node_type == VET_PARAM_NODE) emit_quad(Q_PARAM_VET, param->children[0]->node_value.id_name, "-", "-");
         else emit_quad(Q_INIT, param->children[0]->node_value.id_name, "-", "-");
 
         param = param->sibling;

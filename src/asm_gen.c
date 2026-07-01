@@ -70,6 +70,47 @@ void print_op_list(){
     }
 }
 
+/* =====================================================================
+ * Vetores: reaproveita o campo qnt_param de HashItem (ja existente, antes
+ * so usado para FUNC) para marcar o "tipo" de cada simbolo VAR:
+ *
+ *   0 = escalar comum
+ *   1 = vetor real (global ou local declarado) -- o offset JA E o
+ *       endereco dos dados
+ *   2 = parametro vetor -- o offset e o slot que guarda um PONTEIRO
+ *       (o endereco do vetor do chamador), nao os dados em si
+ *
+ * Nenhuma estrutura nova: e so um novo uso de um campo que ja existia.
+ * ===================================================================== */
+
+static int symbol_kind_flag(char* name, char* scope)
+{
+    HashItem* item = search_item(table, name, scope);
+    if (item == NULL) item = search_item(table, name, "global");
+    return (item != NULL) ? item->qnt_param : 0;
+}
+
+/* Retorna o registrador com o endereco-base do vetor `name`. Se for
+ * parametro vetor (qnt_param==2), o slot guarda um ENDERECO -- precisa de
+ * LW para pegar o ponteiro antes de usa-lo como base. Se for vetor real,
+ * o offset JA E o endereco -- soma-se com ADDI. */
+static int emit_vector_base_address(char* name, char* scope)
+{
+    HashItem* item = search_item(table, name, scope);
+    int base = (item != NULL) ? FRAME_POINTER : 0;
+    mem_offset_t off = get_symbol_offset(table, name, scope);
+
+    if (symbol_kind_flag(name, scope) == 2) {
+        int ptr_reg = get_new_register();
+        emit_operation(ASM_LW, reg(ptr_reg), reg(base), num(off));
+        return ptr_reg;
+    } else {
+        int base_reg = get_new_register();
+        emit_operation(ASM_ADDI, reg(base_reg), reg(base), num(off));
+        return base_reg;
+    }
+}
+
 static int emit_binary_op(ASM_OPERATION asm_op, struct Quadrupla quad)
 {
     int reg1 = get_new_register();
@@ -139,15 +180,25 @@ AsmOperation translate_quad(struct Quadrupla quad)
         }
         case Q_PARAM: {
 
-            int param_reg = get_new_register();
+            int param_reg;
 
             if (quad.addr1.type == INT_NUM) {
+                param_reg = get_new_register();
                 emit_operation(ASM_ADDI, reg(param_reg), reg(0), num(quad.addr1.value.int_num));
             } else {
-                HashItem* arg_item = search_item(table, quad.addr1.value.name, current_function_scope);
-                int arg_base = (arg_item != NULL) ? FRAME_POINTER : 0;
-                mem_offset_t arg_offset = get_symbol_offset(table, quad.addr1.value.name, current_function_scope);
-                emit_operation(ASM_LW, reg(param_reg), reg(arg_base), num(arg_offset));
+                char* arg_name = quad.addr1.value.name;
+
+                if (symbol_kind_flag(arg_name, current_function_scope) != 0) {
+                    /* argumento e um vetor (real ou parametro repassado):
+                     * passa o ENDERECO, nao um valor. */
+                    param_reg = emit_vector_base_address(arg_name, current_function_scope);
+                } else {
+                    param_reg = get_new_register();
+                    HashItem* arg_item = search_item(table, arg_name, current_function_scope);
+                    int arg_base = (arg_item != NULL) ? FRAME_POINTER : 0;
+                    mem_offset_t arg_offset = get_symbol_offset(table, arg_name, current_function_scope);
+                    emit_operation(ASM_LW, reg(param_reg), reg(arg_base), num(arg_offset));
+                }
             }
 
             pending_param_regs[current_param_count] = param_reg;
@@ -217,9 +268,16 @@ AsmOperation translate_quad(struct Quadrupla quad)
             current_sp++;
             break;
 
-        case Q_INITVET:
-            if(search_item(table, quad.addr1.value.name, current_function_scope) == NULL) {
-                insert_item(table, quad.addr1.value.name, current_function_scope, 0, VAR, INT_EXP, 0);
+        case Q_INITVET: {
+            HashItem* vet_item = search_item(table, quad.addr1.value.name, current_function_scope);
+            if(vet_item == NULL) {
+                /* qnt_param = 1: vetor real -- o offset sera o endereco dos dados */
+                insert_item(table, quad.addr1.value.name, current_function_scope, 0, VAR, INT_EXP, 1);
+            } else {
+                /* o simbolo ja existia na tabela (ex: inserido na analise
+                 * semantica) -- precisa marcar mesmo assim, senao qnt_param
+                 * fica com o valor default de quem inseriu antes. */
+                vet_item->qnt_param = 1;
             }
 
             if(strcmp(current_function_scope, "global") == 0)
@@ -234,6 +292,7 @@ AsmOperation translate_quad(struct Quadrupla quad)
             emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(quad.addr2.value.int_num));
             current_sp += quad.addr2.value.int_num;
             break;
+        }
         case Q_ASSIGN: {
             int current_pointer;
             HashItem* temp_hash_item = search_item(table, quad.addr1.value.name, current_function_scope);
@@ -249,13 +308,8 @@ AsmOperation translate_quad(struct Quadrupla quad)
  
             if(quad.addr2.type == NAME) {
                 if(quad.addr3.type != VAZIO){
- 
-                    HashItem* source_hash_item = search_item(table, quad.addr2.value.name, current_function_scope);
-                    int source_pointer = (source_hash_item != NULL) ? FRAME_POINTER : 0;
-                    mem_offset_t vet_offset = get_symbol_offset(table, quad.addr2.value.name, current_function_scope);
- 
-                    int base_reg = get_new_register();
-                    emit_operation(ASM_ADDI, reg(base_reg), reg(source_pointer), num(vet_offset));
+
+                    int base_reg = emit_vector_base_address(quad.addr2.value.name, current_function_scope);
  
                     int index_reg = get_new_register();
                     if (quad.addr3.type == INT_NUM) {
@@ -297,14 +351,31 @@ AsmOperation translate_quad(struct Quadrupla quad)
  
             break;
         }
+        case Q_PARAM_VET: {
+            /* parametro vetor: ganha um slot real de 1 palavra (igual um
+             * escalar) que guarda o ENDERECO do vetor do chamador --
+             * nao mais um offset fixo (0) que colidia com o FP salvo. */
+            HashItem* param_item = search_item(table, quad.addr1.value.name, current_function_scope);
+            if(param_item == NULL) {
+                /* qnt_param = 2: parametro vetor -- o slot guarda um ponteiro */
+                insert_item(table, quad.addr1.value.name, current_function_scope, 0, VAR, INT_EXP, 2);
+            } else {
+                /* o parametro ja existia na tabela (ex: inserido na analise
+                 * semantica) -- precisa marcar mesmo assim, senao qnt_param
+                 * fica com o valor default de quem inseriu antes e o
+                 * mecanismo de ponteiro nunca entra em acao. */
+                param_item->qnt_param = 2;
+            }
 
+            add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_frame_offset);
+            current_frame_offset++;
+
+            emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(1));
+            current_sp++;
+            break;
+        }
         case Q_ASSIGN_VET: {
-            HashItem* vet_hash_item = search_item(table, quad.addr1.value.name, current_function_scope);
-            int vet_base = (vet_hash_item != NULL) ? FRAME_POINTER : 0;
-            mem_offset_t vet_offset = get_symbol_offset(table, quad.addr1.value.name, current_function_scope);
-
-            int base_reg = get_new_register();
-            emit_operation(ASM_ADDI, reg(base_reg), reg(vet_base), num(vet_offset));
+            int base_reg = emit_vector_base_address(quad.addr1.value.name, current_function_scope);
 
             int index_reg = get_new_register();
             if (quad.addr2.type == INT_NUM) {
@@ -429,16 +500,41 @@ AsmOperation translate_quad(struct Quadrupla quad)
             break;
         }
 
-        case Q_FUNCEND:
+        case Q_FUNCEND: {
+            int is_main = (strcmp(quad.addr1.value.name, "main") == 0);
 
-            emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
+            if (is_main) {
+                /* main nunca e chamada via JAL -- e o ponto de entrada do
+                 * programa, alcancado por um JUMP direto. FP(1)/FP(0)
+                 * nunca sao preenchidos com um RA/FP reais para ela,
+                 * entao dar JR aqui pularia para um endereco de lixo.
+                 * Mantem-se o comportamento original: so libera a pilha
+                 * e cai no HALT final emitido em asm_gen(). */
+                emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
+                current_sp = current_fp;
+            } else {
+                /* Toda outra funcao void sem return precisa do MESMO
+                 * epilogo completo que Q_RETURN faz, senao a execucao
+                 * cai por fall-through dentro da proxima funcao do
+                 * binario. */
+                int return_addr_reg = get_new_register();
+                emit_operation(ASM_LW, reg(return_addr_reg), reg(FRAME_POINTER), num(1));
 
-            current_sp = current_fp;
+                int saved_fp_reg = get_new_register();
+                emit_operation(ASM_LW, reg(saved_fp_reg), reg(FRAME_POINTER), num(0));
+
+                emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
+                current_sp = current_fp;
+
+                emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(saved_fp_reg), reg(0));
+                emit_operation(ASM_JR, reg(return_addr_reg), num(0), num(0));
+            }
+
             current_frame_offset = 0;
-
             memset(current_function_scope, 0, SCOPE_NAME_SIZE);
             strcpy(current_function_scope, "global");
             break;
+        }
 
         default:
             break;
@@ -530,20 +626,12 @@ void asm_gen(struct QuadrupleList* list)
         label_frame_offset[i] = -1;
     }
 
-    int startup_jump_index = current_list_position;
-    emit_operation(ASM_JUMP, num(0), num(0), num(0));
-
-    // CORREÇÃO: variáveis GLOBAIS precisam ter seu espaço reservado
-    // ANTES de output/input serem geradas -- não depois. output/input
-    // são tratadas como funções normais: ao "retornar" (fim de sua
-    // definição), seu epílogo faz current_sp = current_fp, resetando
-    // a contagem de volta a 0 (correto para uma função qualquer, cujo
-    // frame não precisa permanecer reservado depois que ela é
-    // definida). Isso significa que NADA do espaço usado por
-    // output/input fica permanentemente ocupado -- e se globais
-    // fossem registradas depois, elas começariam do offset 0 de novo,
-    // colidindo com o frame que output/input usam toda vez que são
-    // CHAMADAS em runtime (diferente de quando são definidas).
+    // A alocacao das globais (ex: ADDI SP,SP,10 pro vet) precisa ficar
+    // ANTES do JUMP inicial na sequencia de instrucoes -- nao so na
+    // ordem de processamento das quadruplas. Se o JUMP for emitido
+    // primeiro (ficando na posicao 0) e seu alvo aponta pra depois de
+    // output/input (bem mais adiante), ele pula DIRETO por cima da
+    // instrucao de alocacao das globais, que nunca chega a executar.
     //
     // A ordem certa: processar as quádruplas globais (que aparecem
     // antes do primeiro Q_FUNCLABEL na lista do usuário) PRIMEIRO,
@@ -552,12 +640,17 @@ void asm_gen(struct QuadrupleList* list)
     // função envolvido, só ADDI direto. Só depois output/input nascem
     // com current_fp = current_sp já avançado pelas globais, e seus
     // frames passam a ocupar espaço que nunca mais será usado por
-    // mais nada.
+    // mais nada. O JUMP so e emitido DEPOIS disso, entao a alocacao
+    // das globais fica na frente dele na sequencia de instrucoes e
+    // executa de verdade antes do salto.
     struct ListNode* global_node = list->list;
     while (global_node != NULL && global_node->quad.type != Q_FUNCLABEL) {
         translate_quad(global_node->quad);
         global_node = global_node->next;
     }
+
+    int startup_jump_index = current_list_position;
+    emit_operation(ASM_JUMP, num(0), num(0), num(0));
 
     emit_output_function();
     emit_input_function();
