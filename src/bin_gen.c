@@ -4,17 +4,9 @@
 #include "bin_gen.h"
 #include "asm_gen.h"
 
-/* mesmas funcoes de utils.c, reaproveitadas para a versao comentada */
 extern void print_asm_operation(AsmOperation op);
 extern const char* asm_operation_to_string(ASM_OPERATION op);
 
-/* ---------------------------------------------------------------------
- * Helpers de codificacao de bits
- * --------------------------------------------------------------------- */
-
-/* Escreve 'value' (truncado/maskado para 'width' bits) em 'dest',
- * começando em dest[*pos], avançando *pos por 'width' caracteres.
- * Não escreve o terminador '\0' -- quem chama cuida disso no final. */
 static void put_bits(char* dest, int* pos, int value, int width) {
     unsigned int mask = (width >= 32) ? 0xFFFFFFFFu : ((1u << width) - 1u);
     unsigned int v = ((unsigned int) value) & mask;
@@ -35,14 +27,13 @@ static const int OPCODE_ADDI   = 0x0A;
 static const int OPCODE_SUBI   = 0x0B;
 static const int OPCODE_HALT   = 0b111111;
 
-/* select da ULA (ver ULA.v) -- so para as operacoes tipo R suportadas */
+
 static int alu_select_for(ASM_OPERATION op) {
     switch (op) {
         case ASM_ADD:  return 0;
         case ASM_SUB:  return 1;
         case ASM_MULT: return 2;
         case ASM_DIV:  return 3;
-        /* 4 = SHL, nao usado por nenhuma quadrupla ainda */
         case ASM_AND:  return 5;
         case ASM_OR:   return 6;
         case ASM_EQ:   return 7;
@@ -67,9 +58,6 @@ static int is_type_r(ASM_OPERATION op) {
     }
 }
 
-/* ---------------------------------------------------------------------
- * Traducao de uma AsmOperation para 32 bits
- * --------------------------------------------------------------------- */
 
 void bin_gen_translate_operation(AsmOperation op, int label_position[], int call_target[], char* out_bits) {
     int pos = 0;
@@ -166,10 +154,6 @@ void bin_gen_translate_operation(AsmOperation op, int label_position[], int call
     out_bits[BIN_GEN_WORD_BITS] = '\0';
 }
 
-/* ---------------------------------------------------------------------
- * Escrita dos arquivos de saida
- * --------------------------------------------------------------------- */
-
 void bin_gen_write_clean(AsmOperation* operation_list, int count, int label_position[], int call_target[], FILE* output) {
     char bits[BIN_GEN_WORD_BITS + 1];
 
@@ -179,11 +163,6 @@ void bin_gen_write_clean(AsmOperation* operation_list, int count, int label_posi
     }
 }
 
-/* Captura a saida de print_asm_operation (que imprime em stdout) como
- * string, para reaproveitar a MESMA logica de formatacao de texto que
- * o resto do compilador ja usa, em vez de duplicar a decisao de "qual
- * operando e base/offset/registrador" numa segunda funcao de
- * impressao. Evita ter duas fontes de verdade para o formato textual. */
 static void capture_asm_text(AsmOperation op, char* buffer, size_t buffer_size) {
     FILE* mem_stream = fmemopen(buffer, buffer_size, "w");
     if (mem_stream == NULL) {
@@ -199,8 +178,6 @@ static void capture_asm_text(AsmOperation op, char* buffer, size_t buffer_size) 
     fflush(mem_stream);
     fclose(mem_stream);
 
-    /* print_asm_operation termina com '\n'; remove para a linha de
-     * comentario ficar limpa. */
     size_t len = strlen(buffer);
     if (len > 0 && buffer[len - 1] == '\n') {
         buffer[len - 1] = '\0';

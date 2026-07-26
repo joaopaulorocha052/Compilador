@@ -70,18 +70,6 @@ void print_op_list(){
     }
 }
 
-/* =====================================================================
- * Vetores: reaproveita o campo qnt_param de HashItem (ja existente, antes
- * so usado para FUNC) para marcar o "tipo" de cada simbolo VAR:
- *
- *   0 = escalar comum
- *   1 = vetor real (global ou local declarado) -- o offset JA E o
- *       endereco dos dados
- *   2 = parametro vetor -- o offset e o slot que guarda um PONTEIRO
- *       (o endereco do vetor do chamador), nao os dados em si
- *
- * Nenhuma estrutura nova: e so um novo uso de um campo que ja existia.
- * ===================================================================== */
 
 static int symbol_kind_flag(char* name, char* scope)
 {
@@ -90,10 +78,6 @@ static int symbol_kind_flag(char* name, char* scope)
     return (item != NULL) ? item->qnt_param : 0;
 }
 
-/* Retorna o registrador com o endereco-base do vetor `name`. Se for
- * parametro vetor (qnt_param==2), o slot guarda um ENDERECO -- precisa de
- * LW para pegar o ponteiro antes de usa-lo como base. Se for vetor real,
- * o offset JA E o endereco -- soma-se com ADDI. */
 static int emit_vector_base_address(char* name, char* scope)
 {
     HashItem* item = search_item(table, name, scope);
@@ -189,8 +173,7 @@ AsmOperation translate_quad(struct Quadrupla quad)
                 char* arg_name = quad.addr1.value.name;
 
                 if (symbol_kind_flag(arg_name, current_function_scope) != 0) {
-                    /* argumento e um vetor (real ou parametro repassado):
-                     * passa o ENDERECO, nao um valor. */
+
                     param_reg = emit_vector_base_address(arg_name, current_function_scope);
                 } else {
                     param_reg = get_new_register();
@@ -271,12 +254,9 @@ AsmOperation translate_quad(struct Quadrupla quad)
         case Q_INITVET: {
             HashItem* vet_item = search_item(table, quad.addr1.value.name, current_function_scope);
             if(vet_item == NULL) {
-                /* qnt_param = 1: vetor real -- o offset sera o endereco dos dados */
                 insert_item(table, quad.addr1.value.name, current_function_scope, 0, VAR, INT_EXP, 1);
             } else {
-                /* o simbolo ja existia na tabela (ex: inserido na analise
-                 * semantica) -- precisa marcar mesmo assim, senao qnt_param
-                 * fica com o valor default de quem inseriu antes. */
+
                 vet_item->qnt_param = 1;
             }
 
@@ -352,18 +332,12 @@ AsmOperation translate_quad(struct Quadrupla quad)
             break;
         }
         case Q_PARAM_VET: {
-            /* parametro vetor: ganha um slot real de 1 palavra (igual um
-             * escalar) que guarda o ENDERECO do vetor do chamador --
-             * nao mais um offset fixo (0) que colidia com o FP salvo. */
+
             HashItem* param_item = search_item(table, quad.addr1.value.name, current_function_scope);
             if(param_item == NULL) {
-                /* qnt_param = 2: parametro vetor -- o slot guarda um ponteiro */
                 insert_item(table, quad.addr1.value.name, current_function_scope, 0, VAR, INT_EXP, 2);
             } else {
-                /* o parametro ja existia na tabela (ex: inserido na analise
-                 * semantica) -- precisa marcar mesmo assim, senao qnt_param
-                 * fica com o valor default de quem inseriu antes e o
-                 * mecanismo de ponteiro nunca entra em acao. */
+
                 param_item->qnt_param = 2;
             }
 
@@ -504,19 +478,10 @@ AsmOperation translate_quad(struct Quadrupla quad)
             int is_main = (strcmp(quad.addr1.value.name, "main") == 0);
 
             if (is_main) {
-                /* main nunca e chamada via JAL -- e o ponto de entrada do
-                 * programa, alcancado por um JUMP direto. FP(1)/FP(0)
-                 * nunca sao preenchidos com um RA/FP reais para ela,
-                 * entao dar JR aqui pularia para um endereco de lixo.
-                 * Mantem-se o comportamento original: so libera a pilha
-                 * e cai no HALT final emitido em asm_gen(). */
+
                 emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
                 current_sp = current_fp;
             } else {
-                /* Toda outra funcao void sem return precisa do MESMO
-                 * epilogo completo que Q_RETURN faz, senao a execucao
-                 * cai por fall-through dentro da proxima funcao do
-                 * binario. */
                 int return_addr_reg = get_new_register();
                 emit_operation(ASM_LW, reg(return_addr_reg), reg(FRAME_POINTER), num(1));
 
@@ -625,24 +590,6 @@ void asm_gen(struct QuadrupleList* list)
     for (int i = 0; i < 32; i++) {
         label_frame_offset[i] = -1;
     }
-
-    // A alocacao das globais (ex: ADDI SP,SP,10 pro vet) precisa ficar
-    // ANTES do JUMP inicial na sequencia de instrucoes -- nao so na
-    // ordem de processamento das quadruplas. Se o JUMP for emitido
-    // primeiro (ficando na posicao 0) e seu alvo aponta pra depois de
-    // output/input (bem mais adiante), ele pula DIRETO por cima da
-    // instrucao de alocacao das globais, que nunca chega a executar.
-    //
-    // A ordem certa: processar as quádruplas globais (que aparecem
-    // antes do primeiro Q_FUNCLABEL na lista do usuário) PRIMEIRO,
-    // avançando current_sp/current_local_offset de verdade -- esse
-    // avanço nunca é desfeito, porque não há prólogo/epílogo de
-    // função envolvido, só ADDI direto. Só depois output/input nascem
-    // com current_fp = current_sp já avançado pelas globais, e seus
-    // frames passam a ocupar espaço que nunca mais será usado por
-    // mais nada. O JUMP so e emitido DEPOIS disso, entao a alocacao
-    // das globais fica na frente dele na sequencia de instrucoes e
-    // executa de verdade antes do salto.
     struct ListNode* global_node = list->list;
     while (global_node != NULL && global_node->quad.type != Q_FUNCLABEL) {
         translate_quad(global_node->quad);
@@ -657,11 +604,6 @@ void asm_gen(struct QuadrupleList* list)
 
     label_position[30] = current_list_position;
     operation_list[startup_jump_index].operands[2] = num(30);
-
-    // Continua a partir de onde o pré-processamento das globais
-    // parou (no primeiro Q_FUNCLABEL, ou NULL se não houver nenhuma
-    // função) -- as quádruplas globais já foram processadas acima,
-    // não devem ser processadas de novo aqui.
     struct ListNode* node = global_node;
     int jump_inserted = 0;
     int jump_index = -1;
