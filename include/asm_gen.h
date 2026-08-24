@@ -12,7 +12,7 @@
 #define STACK_POINTER MAX_NUM_REGISTER-2
 #define FRAME_POINTER MAX_NUM_REGISTER-3
 
-
+void print_op_list();
 
 typedef enum asm_opr
 {
@@ -62,6 +62,7 @@ typedef struct AsmOperation
 {
     ASM_OPERATION asm_operation_type;
     AsmOperand operands[3];
+    char* msg;
 }AsmOperation;
 
 #endif

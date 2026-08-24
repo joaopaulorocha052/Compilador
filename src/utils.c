@@ -263,6 +263,6 @@ void print_asm_operation(AsmOperation op) {
             // print_operand(op.operands[2]);
             break;
     }
-    
+    if(op.msg != NULL) printf("       // %s", op.msg);
     printf("\n");
 }

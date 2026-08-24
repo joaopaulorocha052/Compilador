@@ -48,7 +48,7 @@ AsmOperand num(int number_operand){
 
 AsmOperation emit_operation(ASM_OPERATION op_type, AsmOperand operand1, AsmOperand operand2, AsmOperand operand3)
 {
-    AsmOperation temp = (AsmOperation) {.asm_operation_type=op_type, .operands={operand1, operand2, operand3}};
+    AsmOperation temp = (AsmOperation) {.asm_operation_type=op_type, .operands={operand1, operand2, operand3}, .msg = NULL};
 
     if (current_list_position >= MAX_OPERATION) {
         fprintf(stderr,
@@ -220,6 +220,7 @@ AsmOperation translate_quad(struct Quadrupla quad)
             mem_offset_t func_entry = get_symbol_offset(table, quad.addr1.value.name, "global");
             call_target[call_count] = func_entry;
             emit_operation(ASM_JAL, num(0), num(0), num(call_count));
+            operation_list[current_list_position-1].msg = strdup(quad.addr1.value.name);
             call_count++;
 
             break;
@@ -435,6 +436,7 @@ AsmOperation translate_quad(struct Quadrupla quad)
 
             int dest_addr_reg = get_new_register();
             emit_operation(ASM_LW, reg(dest_addr_reg), reg(FRAME_POINTER), num(2));
+            operation_list[current_list_position-1].msg = strdup("return");
 
             emit_operation(ASM_SW, reg(value_reg), reg(dest_addr_reg), num(0));
 
@@ -459,6 +461,7 @@ AsmOperation translate_quad(struct Quadrupla quad)
             add_offset_to_symbol(table, quad.addr1.value.name, "global", current_list_position);
 
             emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(STACK_POINTER), reg(0));
+            operation_list[current_list_position-1].msg = strdup(quad.addr1.value.name);
 
             current_fp = current_sp;
 
@@ -626,5 +629,4 @@ void asm_gen(struct QuadrupleList* list)
         operation_list[jump_index].operands[2] = num(31);
     }
     emit_operation(ASM_HALT, reg(0), reg(0), reg(0));
-    print_op_list();
 }

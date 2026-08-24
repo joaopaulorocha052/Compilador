@@ -44,8 +44,6 @@ command : programa {$$ = $1;
                     }
                     if(error_num == 0){
 		        sintTree = $$;
-                        print_tree(sintTree, 0);
-                        print_table(table);
                         printf("\nBem sucedido\n");
                     }
                     };
@@ -520,6 +518,7 @@ void procura_func_act(struct ParseTree* tree, int level){
 void fun_conf_param(struct ParseTree* tree){
     if (tree == NULL) return;
     HashItem* item = search_item(table, tree->children[0]->node_value.id_name, "global");
+    if(item == NULL) return;
     struct ParseTree* temp = tree->children[1];
     if(temp == NULL) {
         if(item->qnt_param == 0) return;
