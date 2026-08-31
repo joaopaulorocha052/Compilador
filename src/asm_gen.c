@@ -24,6 +24,8 @@ int current_fp = 0;
 int current_local_offset = 0;
 int current_frame_offset = 0;
 
+int current_func_prologue_idx = -1;
+
 int current_param_count = 0;
 int pending_param_regs[MAX_OPERATION];
 
@@ -150,15 +152,6 @@ AsmOperation translate_quad(struct Quadrupla quad)
         case Q_GOTO: {
             int target_label = quad.addr1.value.int_num;
 
-            if (label_frame_offset[target_label] != -1) {
-                int allocated_since_label = current_frame_offset - label_frame_offset[target_label];
-                if (allocated_since_label > 0) {
-                    emit_operation(ASM_SUBI, reg(STACK_POINTER), reg(STACK_POINTER), num(allocated_since_label));
-                    current_sp -= allocated_since_label;
-                    current_frame_offset -= allocated_since_label;
-                }
-            }
-
             emit_operation(ASM_JUMP, num(0), num(0), num(target_label));
             break;
         }
@@ -238,18 +231,15 @@ AsmOperation translate_quad(struct Quadrupla quad)
 
             if(strcmp(current_function_scope, "global") == 0)
             {
-
                 add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_local_offset);
                 current_local_offset++;
+                emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(1));
+                current_sp++;
             }
             else{
-
                 add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_frame_offset);
                 current_frame_offset++;
             }
-
-            emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(1));
-            current_sp++;
             break;
 
         case Q_INITVET: {
@@ -265,13 +255,13 @@ AsmOperation translate_quad(struct Quadrupla quad)
             {
                 add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_local_offset);
                 current_local_offset += quad.addr2.value.int_num;
+                emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(quad.addr2.value.int_num));
+                current_sp += quad.addr2.value.int_num;
             }
             else{
                 add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_frame_offset);
                 current_frame_offset += quad.addr2.value.int_num;
             }
-            emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(quad.addr2.value.int_num));
-            current_sp += quad.addr2.value.int_num;
             break;
         }
         case Q_ASSIGN: {
@@ -344,9 +334,6 @@ AsmOperation translate_quad(struct Quadrupla quad)
 
             add_offset_to_symbol(table, quad.addr1.value.name, current_function_scope, current_frame_offset);
             current_frame_offset++;
-
-            emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(1));
-            current_sp++;
             break;
         }
         case Q_ASSIGN_VET: {
@@ -468,6 +455,7 @@ AsmOperation translate_quad(struct Quadrupla quad)
             emit_operation(ASM_SW, reg(RETURN_ADDRESS_POINTER), reg(FRAME_POINTER), num(1));
 
             current_sp += 3;
+            current_func_prologue_idx = current_list_position;
             emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(STACK_POINTER), num(3));
 
             current_frame_offset = 3;
@@ -478,6 +466,11 @@ AsmOperation translate_quad(struct Quadrupla quad)
         }
 
         case Q_FUNCEND: {
+            if (current_func_prologue_idx != -1) {
+                operation_list[current_func_prologue_idx].operands[2] = num(current_frame_offset);
+                current_func_prologue_idx = -1;
+            }
+
             int is_main = (strcmp(quad.addr1.value.name, "main") == 0);
 
             if (is_main) {
@@ -542,6 +535,11 @@ static void emit_input_function()
 
     emit_operation(ASM_JR, reg(return_addr_reg), num(0), num(0));
 
+    if (current_func_prologue_idx != -1) {
+        operation_list[current_func_prologue_idx].operands[2] = num(current_frame_offset);
+        current_func_prologue_idx = -1;
+    }
+
     current_frame_offset = 0;
     memset(current_function_scope, 0, SCOPE_NAME_SIZE);
     strcpy(current_function_scope, "global");
@@ -580,6 +578,11 @@ static void emit_output_function()
     emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(saved_fp_reg), reg(0));
 
     emit_operation(ASM_JR, reg(return_addr_reg), num(0), num(0));
+
+    if (current_func_prologue_idx != -1) {
+        operation_list[current_func_prologue_idx].operands[2] = num(current_frame_offset);
+        current_func_prologue_idx = -1;
+    }
 
     current_frame_offset = 0;
     memset(current_function_scope, 0, SCOPE_NAME_SIZE);
