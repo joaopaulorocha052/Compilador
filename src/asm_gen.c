@@ -45,7 +45,7 @@ AsmOperand reg(int register_operand){
 }
 
 AsmOperand num(int number_operand){
-    return (AsmOperand) {.operand=number_operand, .type=ASM_NUMBER};
+return (AsmOperand) {.operand=number_operand, .type=ASM_NUMBER};
 }
 
 AsmOperation emit_operation(ASM_OPERATION op_type, AsmOperand operand1, AsmOperand operand2, AsmOperand operand3)
@@ -589,6 +589,77 @@ static void emit_output_function()
     strcpy(current_function_scope, "global");
 }
 
+
+static void emit_sw_load_word(){
+
+    /*********************** Funcao swLoadWord *********************/
+    /********* void swLoadWord(int baseAddress, int wordIndex) *********/
+    /* carrega uma linha de uma memoria para a outra via software */
+
+    // criacao das quadruplas na lista
+    struct ADDR func_name = (struct ADDR){.type = NAME, .value.name = "swLoadWord"};
+    struct ADDR dash = (struct ADDR){.type = NAME, .value.name = "-"};
+    struct Quadrupla quad;
+
+    quad = (struct Quadrupla){.type = Q_FUNCLABEL, .addr1 = func_name, .addr2 = dash, .addr3 = dash};
+    translate_quad(quad);
+
+    struct ADDR param_name = (struct ADDR){.type = NAME, .value.name = "__base_address"};
+    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = param_name, .addr2 = dash, .addr3 = dash};
+    translate_quad(quad);
+
+    struct ADDR param_name = (struct ADDR){.type = NAME, .value.name = "__word_index"};
+    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = param_name, .addr2 = dash, .addr3 = dash};
+    translate_quad(quad);
+
+    struct ADDR param_name = (struct ADDR){.type = NAME, .value.name = "__dest"};
+    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = param_name, .addr2 = dash, .addr3 = dash};
+    translate_quad(quad);
+
+    //corpo da funcao
+    int base_address_value = get_new_register();
+    mem_offset_t base_address_off = get_symbol_offset(table, "__base_address", "swLoadWord");
+    emit_operation(ASM_LW, reg(base_address_value), reg(FRAME_POINTER), num(base_address_off));
+
+    int word_index_value = get_new_register();
+    mem_offset_t word_index_off = get_symbol_offset(table, "__word_index", "swLoadWord");
+    emit_operation(ASM_LW, reg(word_index_value), reg(FRAME_POINTER), num(word_index_off));
+
+    int destination_value = get_new_register();
+    mem_offset_t destination_off = get_symbol_offset(table, "__dest", "swLoadWord");
+    emit_operation(ASM_LW, reg(destination_value), reg(FRAME_POINTER), num(destination_off));
+
+
+
+    int temp_value_reg = get_new_register();
+    emit_operation(ASM_LW, reg(temp_value_reg), reg(base_address_value), num(word_index_value));
+
+
+    emit_operation(ASM_SW, reg(temp_value_reg), reg(destination_value), num(word_index_value));
+    
+    // epilogo
+    int return_addr_reg = get_new_register();
+    emit_operation(ASM_LW, reg(return_addr_reg), reg(FRAME_POINTER), num(1));
+
+    int saved_fp_reg = get_new_register();
+    emit_operation(ASM_LW, reg(saved_fp_reg), reg(FRAME_POINTER), num(0));
+
+    emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
+    current_sp = current_fp;
+
+    emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(saved_fp_reg), reg(0));
+
+    emit_operation(ASM_JR, reg(return_addr_reg), num(0), num(0));
+
+    if (current_func_prologue_idx != -1) {
+        operation_list[current_func_prologue_idx].operands[2] = num(current_frame_offset);
+        current_func_prologue_idx = -1;
+    }
+
+    current_frame_offset = 0;
+    memset(current_function_scope, 0, SCOPE_NAME_SIZE);
+    strcpy(current_function_scope, "global");
+}
 void asm_gen(struct QuadrupleList* list)
 {
     printf("\n\nAsm generator using %d Registers\n\n", MAX_NUM_REGISTER);
