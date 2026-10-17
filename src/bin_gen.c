@@ -6,6 +6,11 @@
 
 extern void print_asm_operation(AsmOperation op);
 extern const char* asm_operation_to_string(ASM_OPERATION op);
+extern int compilation_base_address;
+
+static int apply_compilation_base(int address) {
+    return address + compilation_base_address;
+}
 
 static void put_bits(char* dest, int* pos, int value, int width) {
     unsigned int mask = (width >= 32) ? 0xFFFFFFFFu : ((1u << width) - 1u);
@@ -107,7 +112,7 @@ void bin_gen_translate_operation(AsmOperation op, int label_position[], int call
         /* BEQ/BNE src1, src2, label -- operands[2] e um INDICE em
          * label_position[], resolvido aqui para o endereco final
          * (mesma logica de print_asm_operation). */
-        int target = label_position[op.operands[2].operand];
+        int target = apply_compilation_base(label_position[op.operands[2].operand]);
         put_bits(out_bits, &pos, OPCODE_BEQ, 6);
         put_bits(out_bits, &pos, op.operands[0].operand, 5); /* src1 */
         put_bits(out_bits, &pos, op.operands[1].operand, 5); /* src2 */
@@ -115,7 +120,7 @@ void bin_gen_translate_operation(AsmOperation op, int label_position[], int call
     }
     else if (op.asm_operation_type == ASM_JUMP) {
         /* JUMP label -- operands[2] e indice em label_position[]. */
-        int target = label_position[op.operands[2].operand];
+        int target = apply_compilation_base(label_position[op.operands[2].operand]);
         put_bits(out_bits, &pos, OPCODE_JUMP, 6);
         put_bits(out_bits, &pos, target, 26);
     }
@@ -123,7 +128,7 @@ void bin_gen_translate_operation(AsmOperation op, int label_position[], int call
         /* JAL funcao -- operands[2] e indice em call_target[] (NAO em
          * label_position[] -- cada chamada tem seu proprio slot, ver
          * asm_gen.c). */
-        int target = call_target[op.operands[2].operand];
+        int target = apply_compilation_base(call_target[op.operands[2].operand]);
         put_bits(out_bits, &pos, OPCODE_JAL, 6);
         put_bits(out_bits, &pos, target, 26);
     }

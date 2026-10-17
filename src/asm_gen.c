@@ -8,6 +8,7 @@
 #define MAX_OPERATION 1000
 
 extern HashTable* table;
+extern int compilation_base_address;
 int label_position[32];
 char current_function_scope[SCOPE_NAME_SIZE] = "global";
 
@@ -61,8 +62,15 @@ AsmOperation emit_operation(ASM_OPERATION op_type, AsmOperand operand1, AsmOpera
     }
 
     operation_list[current_list_position] = temp;
-
     current_list_position++;
+
+    // if (op_type == ASM_JUMP || op_type == ASM_JAL || op_type == ASM_JR ||
+    //     op_type == ASM_BEQ  || op_type == ASM_BNE) {
+    //     operation_list[current_list_position] =
+    //         (AsmOperation){ .asm_operation_type = ASM_NOP,
+    //                         .operands = {reg(0), reg(0), reg(0)}, .msg = NULL };
+//     current_list_position++;
+    // }
     return temp;
 }
 
@@ -589,7 +597,6 @@ static void emit_output_function()
     strcpy(current_function_scope, "global");
 }
 
-
 static void emit_sw_load_word(){
 
     /*********************** Funcao swLoadWord *********************/
@@ -604,16 +611,16 @@ static void emit_sw_load_word(){
     quad = (struct Quadrupla){.type = Q_FUNCLABEL, .addr1 = func_name, .addr2 = dash, .addr3 = dash};
     translate_quad(quad);
 
-    struct ADDR param_name = (struct ADDR){.type = NAME, .value.name = "__base_address"};
-    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = param_name, .addr2 = dash, .addr3 = dash};
+    struct ADDR base_param = (struct ADDR){.type = NAME, .value.name = "__base_address"};
+    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = base_param, .addr2 = dash, .addr3 = dash};
     translate_quad(quad);
 
-    struct ADDR param_name = (struct ADDR){.type = NAME, .value.name = "__word_index"};
-    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = param_name, .addr2 = dash, .addr3 = dash};
+    struct ADDR word_index_param = (struct ADDR){.type = NAME, .value.name = "__word_index"};
+    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = word_index_param, .addr2 = dash, .addr3 = dash};
     translate_quad(quad);
 
-    struct ADDR param_name = (struct ADDR){.type = NAME, .value.name = "__dest"};
-    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = param_name, .addr2 = dash, .addr3 = dash};
+    struct ADDR dest_param = (struct ADDR){.type = NAME, .value.name = "__dest"};
+    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = dest_param, .addr2 = dash, .addr3 = dash};
     translate_quad(quad);
 
     //corpo da funcao
