@@ -9,6 +9,7 @@
 
 extern HashTable* table;
 extern int compilation_base_address;
+extern int ram_base_address;
 int label_position[32];
 char current_function_scope[SCOPE_NAME_SIZE] = "global";
 
@@ -669,11 +670,16 @@ static void emit_sw_load_word(){
 }
 void asm_gen(struct QuadrupleList* list)
 {
+    current_local_offset = ram_base_address;
     printf("\n\nAsm generator using %d Registers\n\n", MAX_NUM_REGISTER);
 
     for (int i = 0; i < 32; i++) {
         label_frame_offset[i] = -1;
     }
+
+    emit_operation(ASM_ADDI, reg(STACK_POINTER), reg(0), num(ram_base_address));
+    current_sp = ram_base_address;
+    current_fp = ram_base_address;
     struct ListNode* global_node = list->list;
     while (global_node != NULL && global_node->quad.type != Q_FUNCLABEL) {
         translate_quad(global_node->quad);

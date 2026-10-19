@@ -8,6 +8,7 @@
 #define SCOPE_NAME_SIZE 100
 
 extern int compilation_base_address;
+extern int ram_base_address;
 
 struct QuadrupleList* init_list();
 int add_quadruple_to_list(struct QuadrupleList* list, struct Quadrupla quad);

@@ -20,7 +20,7 @@ extern int lineno;
 extern struct QuadrupleList* quadList;
 
 int compilation_base_address;
-
+int ram_base_address;
 extern AsmOperation operation_list[];
 extern int current_list_position;
 extern int label_position[];
@@ -38,7 +38,8 @@ typedef struct opt
     int ic_print;
     int table_print;
     int tree_print;
-    int base_address;
+    int instruction_base_address;
+    int data_base_address;
 } Options;
 
 
@@ -48,6 +49,7 @@ int main(int argc, char *argv[]){
     FILE * file;
     quadList = init_list();
     compilation_base_address = 0;
+    ram_base_address = 0;
 
     if(argc < 2) {
         printf("Uso do programa: %s <arquivo_de_leitura> <-l -> uso do flex>\n", argv[0]);
@@ -67,8 +69,12 @@ int main(int argc, char *argv[]){
         else if(strcmp(argv[i], "--tree_print") == 0 || strcmp(argv[i], "-s") == 0){
             options.tree_print = 1;
         }
-        else if(strcmp(argv[i], "--base_address") == 0 || strcmp(argv[i], "-b") == 0){
+        else if(strcmp(argv[i], "--instruction_base_address") == 0 || strcmp(argv[i], "-b") == 0){
             compilation_base_address = strtol(argv[i + 1], NULL, 16);
+            i++;
+        }
+        else if(strcmp(argv[i], "--data_base_address") == 0 || strcmp(argv[i], "-d") == 0){
+            ram_base_address = strtol(argv[i + 1], NULL, 16);
             i++;
         }
     }
