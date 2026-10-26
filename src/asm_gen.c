@@ -10,6 +10,8 @@
 extern HashTable* table;
 extern int compilation_base_address;
 extern int ram_base_address;
+extern int emit_low_level_lib;
+
 int label_position[32];
 char current_function_scope[SCOPE_NAME_SIZE] = "global";
 
@@ -511,14 +513,61 @@ AsmOperation translate_quad(struct Quadrupla quad)
     }
 }
 
-static void emit_input_function()
-{
-    struct ADDR func_name = (struct ADDR){.type = NAME, .value.name = "input"};
+
+
+static void emit_lib_func_start(const char *lib_func_name, char* params_list[15], int params_list_size){
+    struct ADDR func_name = (struct ADDR){.type = NAME, .value.name = (char*)lib_func_name};
     struct ADDR dash = (struct ADDR){.type = NAME, .value.name = "-"};
     struct Quadrupla quad;
 
     quad = (struct Quadrupla){.type = Q_FUNCLABEL, .addr1 = func_name, .addr2 = dash, .addr3 = dash};
     translate_quad(quad);
+
+
+    for(int i=0; i<params_list_size; i++){
+        struct ADDR param_name = (struct ADDR){.type = NAME, .value.name = (char*)params_list[i]};
+        quad = (struct Quadrupla){.type = Q_INIT, .addr1 = param_name, .addr2 = dash, .addr3 = dash};
+        translate_quad(quad);
+    }
+}
+
+
+static void emit_lib_func_end(){
+    int return_addr_reg = get_new_register();
+    emit_operation(ASM_LW, reg(return_addr_reg), reg(FRAME_POINTER), num(1));
+
+    int saved_fp_reg = get_new_register();
+    emit_operation(ASM_LW, reg(saved_fp_reg), reg(FRAME_POINTER), num(0));
+
+    emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
+    current_sp = current_fp;
+
+    emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(saved_fp_reg), reg(0));
+
+    emit_operation(ASM_JR, reg(return_addr_reg), num(0), num(0));
+
+    if (current_func_prologue_idx != -1) {
+        operation_list[current_func_prologue_idx].operands[2] = num(current_frame_offset);
+        current_func_prologue_idx = -1;
+    }
+
+    current_frame_offset = 0;
+    memset(current_function_scope, 0, SCOPE_NAME_SIZE);
+    strcpy(current_function_scope, "global");
+}
+
+
+static void emit_input_function()
+{
+
+    /************************************* Funcao Input *************************************/
+    /************************* int input(void)***************************/
+    /* Recebe o valor de entrada e o utiliza como retorno  */
+
+    emit_lib_func_start("input", NULL, 0);
+
+
+    //------------- Corpo em Assembly da função -----------------//
 
     emit_operation(ASM_ADDI, reg(3), reg(0), num(2));
 
@@ -528,44 +577,24 @@ static void emit_input_function()
 
     int dest_addr_reg = get_new_register();
     emit_operation(ASM_LW, reg(dest_addr_reg), reg(FRAME_POINTER), num(2));
-
+    
     emit_operation(ASM_SW, reg(2), reg(dest_addr_reg), num(0));
-
-    int return_addr_reg = get_new_register();
-    emit_operation(ASM_LW, reg(return_addr_reg), reg(FRAME_POINTER), num(1));
-
-    int saved_fp_reg = get_new_register();
-    emit_operation(ASM_LW, reg(saved_fp_reg), reg(FRAME_POINTER), num(0));
-
-    emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
-    current_sp = current_fp;
-
-    emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(saved_fp_reg), reg(0));
-
-    emit_operation(ASM_JR, reg(return_addr_reg), num(0), num(0));
-
-    if (current_func_prologue_idx != -1) {
-        operation_list[current_func_prologue_idx].operands[2] = num(current_frame_offset);
-        current_func_prologue_idx = -1;
-    }
-
-    current_frame_offset = 0;
-    memset(current_function_scope, 0, SCOPE_NAME_SIZE);
-    strcpy(current_function_scope, "global");
+    
+    //-----------------------------------------------------------//
+    
+    emit_lib_func_end();
 }
 
 static void emit_output_function()
 {
-    struct ADDR func_name = (struct ADDR){.type = NAME, .value.name = "output"};
-    struct ADDR dash = (struct ADDR){.type = NAME, .value.name = "-"};
-    struct Quadrupla quad;
 
-    quad = (struct Quadrupla){.type = Q_FUNCLABEL, .addr1 = func_name, .addr2 = dash, .addr3 = dash};
-    translate_quad(quad);
+    /*************************************Funcao output *************************************/
+    /************************* void swLoadWord(int __output_param)***************************/
+    /* Escreve o valor de entrada __output_param no registrador de saida e configura a saida  */
+    const char* params[] = {"__output_param"};
+    emit_lib_func_start("output", params, 1);
 
-    struct ADDR param_name = (struct ADDR){.type = NAME, .value.name = "__output_param"};
-    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = param_name, .addr2 = dash, .addr3 = dash};
-    translate_quad(quad);
+    //------------- Corpo em Assembly da função -----------------//
 
     emit_operation(ASM_ADDI, reg(3), reg(0), num(5));
 
@@ -575,56 +604,25 @@ static void emit_output_function()
 
     emit_operation(ASM_ADD, reg(1), reg(value_reg), reg(0));
 
-    int return_addr_reg = get_new_register();
-    emit_operation(ASM_LW, reg(return_addr_reg), reg(FRAME_POINTER), num(1));
+    //-----------------------------------------------------------//
 
-    int saved_fp_reg = get_new_register();
-    emit_operation(ASM_LW, reg(saved_fp_reg), reg(FRAME_POINTER), num(0));
-
-    emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
-    current_sp = current_fp;
-
-    emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(saved_fp_reg), reg(0));
-
-    emit_operation(ASM_JR, reg(return_addr_reg), num(0), num(0));
-
-    if (current_func_prologue_idx != -1) {
-        operation_list[current_func_prologue_idx].operands[2] = num(current_frame_offset);
-        current_func_prologue_idx = -1;
-    }
-
-    current_frame_offset = 0;
-    memset(current_function_scope, 0, SCOPE_NAME_SIZE);
-    strcpy(current_function_scope, "global");
+    emit_lib_func_end();
 }
 
 static void emit_sw_load_word(){
 
     /*********************** Funcao swLoadWord *********************/
-    /********* void swLoadWord(int baseAddress, int wordIndex) *********/
+    /********* void swLoadWord(int baseAddress, int wordIndex, int dest) *********/
     /* carrega uma linha de uma memoria para a outra via software */
 
     // criacao das quadruplas na lista
-    struct ADDR func_name = (struct ADDR){.type = NAME, .value.name = "swLoadWord"};
-    struct ADDR dash = (struct ADDR){.type = NAME, .value.name = "-"};
-    struct Quadrupla quad;
 
-    quad = (struct Quadrupla){.type = Q_FUNCLABEL, .addr1 = func_name, .addr2 = dash, .addr3 = dash};
-    translate_quad(quad);
+    const char* params[] = {"__base_address", "__word_index", "__dest"};
 
-    struct ADDR base_param = (struct ADDR){.type = NAME, .value.name = "__base_address"};
-    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = base_param, .addr2 = dash, .addr3 = dash};
-    translate_quad(quad);
+    emit_lib_func_start("swLoadWord", params, 3);
 
-    struct ADDR word_index_param = (struct ADDR){.type = NAME, .value.name = "__word_index"};
-    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = word_index_param, .addr2 = dash, .addr3 = dash};
-    translate_quad(quad);
-
-    struct ADDR dest_param = (struct ADDR){.type = NAME, .value.name = "__dest"};
-    quad = (struct Quadrupla){.type = Q_INIT, .addr1 = dest_param, .addr2 = dash, .addr3 = dash};
-    translate_quad(quad);
-
-    //corpo da funcao
+    //------------- Corpo em Assembly da função -----------------//
+    
     int base_address_value = get_new_register();
     mem_offset_t base_address_off = get_symbol_offset(table, "__base_address", "swLoadWord");
     emit_operation(ASM_LW, reg(base_address_value), reg(FRAME_POINTER), num(base_address_off));
@@ -639,35 +637,40 @@ static void emit_sw_load_word(){
 
 
 
+    int src_addr = get_new_register();
+    int dst_addr = get_new_register();
     int temp_value_reg = get_new_register();
-    emit_operation(ASM_LW, reg(temp_value_reg), reg(base_address_value), num(word_index_value));
 
-
-    emit_operation(ASM_SW, reg(temp_value_reg), reg(destination_value), num(word_index_value));
+    emit_operation(ASM_ADD, reg(src_addr), reg(base_address_value), reg(word_index_value));
+    emit_operation(ASM_ADD, reg(dst_addr), reg(destination_value),  reg(word_index_value));
+    emit_operation(ASM_LW,  reg(temp_value_reg), reg(src_addr), num(0));
+    emit_operation(ASM_SW,  reg(temp_value_reg), reg(dst_addr), num(0));
     
-    // epilogo
-    int return_addr_reg = get_new_register();
-    emit_operation(ASM_LW, reg(return_addr_reg), reg(FRAME_POINTER), num(1));
-
-    int saved_fp_reg = get_new_register();
-    emit_operation(ASM_LW, reg(saved_fp_reg), reg(FRAME_POINTER), num(0));
-
-    emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
-    current_sp = current_fp;
-
-    emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(saved_fp_reg), reg(0));
-
-    emit_operation(ASM_JR, reg(return_addr_reg), num(0), num(0));
-
-    if (current_func_prologue_idx != -1) {
-        operation_list[current_func_prologue_idx].operands[2] = num(current_frame_offset);
-        current_func_prologue_idx = -1;
-    }
-
-    current_frame_offset = 0;
-    memset(current_function_scope, 0, SCOPE_NAME_SIZE);
-    strcpy(current_function_scope, "global");
+    //-----------------------------------------------------------//
+    
+    emit_lib_func_end();
 }
+
+static void emit_sw_jump(){
+
+    const char* params[] = {"__dest"};
+
+    emit_lib_func_start("swJump", params, 1);
+    //------------- Corpo em Assembly da função -----------------//
+
+    int jump_address_value = get_new_register();
+    mem_offset_t jump_address_off = get_symbol_offset(table, "__dest", "swJump");
+    emit_operation(ASM_LW, reg(jump_address_value), reg(FRAME_POINTER), num(jump_address_off));
+    emit_operation(ASM_JR, reg(jump_address_value), num(0), num(0));
+
+
+    //-----------------------------------------------------------//
+
+    emit_lib_func_end();
+
+}
+
+
 void asm_gen(struct QuadrupleList* list)
 {
     current_local_offset = ram_base_address;
@@ -689,6 +692,10 @@ void asm_gen(struct QuadrupleList* list)
     int startup_jump_index = current_list_position;
     emit_operation(ASM_JUMP, num(0), num(0), num(0));
 
+    if(emit_low_level_lib){
+        emit_sw_load_word();
+        emit_sw_jump();
+    }
     emit_output_function();
     emit_input_function();
 

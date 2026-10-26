@@ -21,6 +21,7 @@ extern struct QuadrupleList* quadList;
 
 int compilation_base_address;
 int ram_base_address;
+int emit_low_level_lib;
 extern AsmOperation operation_list[];
 extern int current_list_position;
 extern int label_position[];
@@ -68,6 +69,9 @@ int main(int argc, char *argv[]){
         }
         else if(strcmp(argv[i], "--tree_print") == 0 || strcmp(argv[i], "-s") == 0){
             options.tree_print = 1;
+        }
+        else if(strcmp(argv[i], "--low_level_lib") == 0 || strcmp(argv[i], "-l") == 0){
+            emit_low_level_lib = 1;
         }
         else if(strcmp(argv[i], "--instruction_base_address") == 0 || strcmp(argv[i], "-b") == 0){
             compilation_base_address = strtol(argv[i + 1], NULL, 16);

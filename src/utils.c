@@ -5,6 +5,7 @@
 #include "code_gen.h"
 #include "asm_gen.h"
 
+
 struct QuadrupleList* quadList;
 
 extern int label_position[32];
@@ -266,3 +267,5 @@ void print_asm_operation(AsmOperation op) {
     if(op.msg != NULL) printf("       // %s", op.msg);
     printf("\n");
 }
+
+

@@ -114,6 +114,9 @@ HashTable* create_table(){
 
     insert_item(temp, "input", "global", 0, FUNC, INT_EXP, 0);
     insert_item(temp, "output", "global", 0, FUNC, VOID_EXP, 1);
+    insert_item(temp, "swLoadWord", "global", 0, FUNC, VOID_EXP, 3);
+    insert_item(temp, "swJump", "global", 0, FUNC, VOID_EXP, 1);
+
 
     return temp;
 }
