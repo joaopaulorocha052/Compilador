@@ -98,12 +98,12 @@ int main(int argc, char *argv[]){
         return -1;
     }
     gen_code(sintTree);
-    if(options.table_print == 1) print_table(table);
     if(options.tree_print == 1) print_tree(sintTree, 0);
     if(options.ic_print == 1) print_list(quadList);
-
+    
     asm_gen(quadList);
     if(options.asm_print == 1) print_op_list();
+    if(options.table_print == 1) print_table(table);
 
     FILE* bin_clean = fopen("programa.bin.txt", "w");
     if (bin_clean != NULL) {

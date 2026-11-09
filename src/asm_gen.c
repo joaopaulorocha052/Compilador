@@ -39,7 +39,7 @@ int get_new_register()
 {
     static int returned_register = 4;
 
-    if(returned_register >= MAX_NUM_REGISTER-3) returned_register = 4;
+    if(returned_register >= 27) returned_register = 4;
 
     return returned_register++;
 }
@@ -671,6 +671,62 @@ static void emit_sw_jump(){
 }
 
 
+
+static void emit_sw_read_ram(){
+ 
+    /*********************** Funcao swReadRam *********************/
+    /********************* int swReadRam(int address) *********************/
+    /* Le a palavra no endereco absoluto 'address' e a devolve como retorno */
+ 
+    const char* params[] = {"__address"};
+    emit_lib_func_start("swReadRam", params, 1);
+ 
+    //------------- Corpo em Assembly da função -----------------//
+ 
+    int address_reg = get_new_register();
+    mem_offset_t address_off = get_symbol_offset(table, "__address", "swReadRam");
+    emit_operation(ASM_LW, reg(address_reg), reg(FRAME_POINTER), num(address_off));
+ 
+    int value_reg = get_new_register();
+    emit_operation(ASM_LW, reg(value_reg), reg(address_reg), num(0));
+ 
+    /* escreve o valor no endereco de retorno (mesma convencao de input()) */
+    int dest_addr_reg = get_new_register();
+    emit_operation(ASM_LW, reg(dest_addr_reg), reg(FRAME_POINTER), num(2));
+    emit_operation(ASM_SW, reg(value_reg), reg(dest_addr_reg), num(0));
+ 
+    //-----------------------------------------------------------//
+ 
+    emit_lib_func_end();
+}
+ 
+static void emit_sw_write_ram(){
+ 
+    /*********************** Funcao swWriteRam *********************/
+    /*************** void swWriteRam(int address, int value) ***************/
+    /* Escreve 'value' na palavra do endereco absoluto 'address' */
+ 
+    const char* params[] = {"__address", "__value"};
+    emit_lib_func_start("swWriteRam", params, 2);
+ 
+    //------------- Corpo em Assembly da função -----------------//
+ 
+    int address_reg = get_new_register();
+    mem_offset_t address_off = get_symbol_offset(table, "__address", "swWriteRam");
+    emit_operation(ASM_LW, reg(address_reg), reg(FRAME_POINTER), num(address_off));
+ 
+    int value_reg = get_new_register();
+    mem_offset_t value_off = get_symbol_offset(table, "__value", "swWriteRam");
+    emit_operation(ASM_LW, reg(value_reg), reg(FRAME_POINTER), num(value_off));
+ 
+    emit_operation(ASM_SW, reg(value_reg), reg(address_reg), num(0));
+ 
+    //-----------------------------------------------------------//
+ 
+    emit_lib_func_end();
+}
+
+
 void asm_gen(struct QuadrupleList* list)
 {
     current_local_offset = ram_base_address;
@@ -695,6 +751,8 @@ void asm_gen(struct QuadrupleList* list)
     if(emit_low_level_lib){
         emit_sw_load_word();
         emit_sw_jump();
+        emit_sw_read_ram();
+        emit_sw_write_ram();
     }
     emit_output_function();
     emit_input_function();

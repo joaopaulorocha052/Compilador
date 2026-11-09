@@ -116,6 +116,8 @@ HashTable* create_table(){
     insert_item(temp, "output", "global", 0, FUNC, VOID_EXP, 1);
     insert_item(temp, "swLoadWord", "global", 0, FUNC, VOID_EXP, 3);
     insert_item(temp, "swJump", "global", 0, FUNC, VOID_EXP, 1);
+    insert_item(temp, "swReadRam", "global", 0, FUNC, INT_EXP, 1);
+    insert_item(temp, "swWriteRam", "global", 0, FUNC, VOID_EXP, 2);
 
 
     return temp;
@@ -250,14 +252,14 @@ const char* type_to_string(ExpType type){
 }
 void print_table(HashTable* table){
     printf("============================================== TABELA DE SIMBOLOS ==============================================\n");
-    printf("======== ID ========= EXPRESSAO ======= ESCOPO ====== TIPO = Quantidade de Parâmetros ============== LINHAS ==========\n");
+    printf("======== ID ========= EXPRESSAO ======= ESCOPO ====== TIPO = Quantidade de Parâmetros ============== OFFSET ========== Linhas ==========\n");
 
 
     for(int i=0; i<HASH_TABLE_SIZE; i++){
         HashItem* current_item = table->items[i];
         if(current_item == NULL) continue;
 
-        printf("|%-20s||%-8s||%-20s||%-5s||%-20d||     ",current_item->value, kind_to_string(current_item->kind), current_item->scope, type_to_string(current_item->type), current_item->qnt_param);
+        printf("|%-20s||%-8s||%-20s||%-15s||%-20d||%-20d||    ",current_item->value, kind_to_string(current_item->kind), current_item->scope, type_to_string(current_item->type), current_item->qnt_param, current_item->stack_pointer_offset);
         LineList* temp = current_item->lines;
         printf("%d", temp->line_num);
         temp = temp->next_line;
@@ -269,7 +271,7 @@ void print_table(HashTable* table){
         
         HashItem* temp_item = current_item;
         while(temp_item->next_item != NULL){
-            printf("|%-20s||%-8s||%-20s||%-5s||%-20d||     ",temp_item->next_item->value, kind_to_string(temp_item->next_item->kind), temp_item->next_item->scope, type_to_string(temp_item->next_item->type), temp_item->next_item->qnt_param);
+            printf("|%-20s||%-8s||%-20s||%-15s||%-20d||%-20d||    ",temp_item->next_item->value, kind_to_string(temp_item->next_item->kind), temp_item->next_item->scope, type_to_string(temp_item->next_item->type), temp_item->next_item->qnt_param, temp_item->next_item->stack_pointer_offset);
             LineList* temp = temp_item->next_item->lines;
             printf("%d", temp->line_num);
             temp = temp->next_line;
