@@ -515,7 +515,7 @@ AsmOperation translate_quad(struct Quadrupla quad)
 
 
 
-static void emit_lib_func_start(const char *lib_func_name, char* params_list[15], int params_list_size){
+static void emit_lib_func_start(const char *lib_func_name, const char *params_list[], int params_list_size){
     struct ADDR func_name = (struct ADDR){.type = NAME, .value.name = (char*)lib_func_name};
     struct ADDR dash = (struct ADDR){.type = NAME, .value.name = "-"};
     struct Quadrupla quad;

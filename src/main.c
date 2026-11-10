@@ -98,7 +98,7 @@ int main(int argc, char *argv[]){
         return -1;
     }
     gen_code(sintTree);
-    if(options.tree_print == 1) print_tree(sintTree, 0);
+    //if(options.tree_print == 1) print_tree(sintTree, 0);
     if(options.ic_print == 1) print_list(quadList);
     
     asm_gen(quadList);

@@ -217,7 +217,7 @@ mem_offset_t get_symbol_offset(HashTable* table, char* value, char*scope)
     }
 
 
-    return NULL;
+    return 0;
 }
 
 const char* kind_to_string(ExpKind kind){

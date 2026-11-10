@@ -4,6 +4,7 @@
 
 extern int temporary_variable;
 typedef int vec_index_t;
+struct ParseTree; 
 
 typedef enum {
     Q_SOMA = 0,
@@ -86,4 +87,5 @@ void print_tree_code_gen(struct ParseTree* tree);
 const char* quadruple_type_to_string(QUADRUPLE_TYPES type);
 char* gen_code(struct ParseTree* tree);
 const QUADRUPLE_TYPES token_to_quad(int token);
+void asm_gen(struct QuadrupleList* list);
 #endif
