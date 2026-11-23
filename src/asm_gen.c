@@ -11,6 +11,14 @@ extern HashTable* table;
 extern int compilation_base_address;
 extern int ram_base_address;
 extern int emit_low_level_lib;
+extern int emit_return_mode;   /* -r: main termina com JR RA (processo chamado pelo SO) */
+
+/* Endereco (na iram) onde o SO carrega o processo e onde swRunProcess salta. */
+#define PROCESS_ENTRY_ADDRESS 1024   /* 0x400 */
+
+/* Registrador reservado para guardar o FP do SO durante a execucao do processo.
+ * O compilador usa R4-R26, o hardware usa R27 (IRQ) e R29/R30/R31. */
+#define SAVED_FP_REGISTER 28
 
 int label_position[32];
 char current_function_scope[SCOPE_NAME_SIZE] = "global";
@@ -486,8 +494,16 @@ AsmOperation translate_quad(struct Quadrupla quad)
 
             if (is_main) {
 
-                emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
-                current_sp = current_fp;
+                if (emit_return_mode) {
+                    /* Processo chamado por swRunProcess (-r): volta ao SO usando o RA
+                     * salvo no prologue. FP e SP sao restaurados por swRunProcess. */
+                    int main_return_addr_reg = get_new_register();
+                    emit_operation(ASM_LW, reg(main_return_addr_reg), reg(FRAME_POINTER), num(1));
+                    emit_operation(ASM_JR, reg(main_return_addr_reg), num(0), num(0));
+                } else {
+                    emit_operation(ASM_ADD, reg(STACK_POINTER), reg(FRAME_POINTER), reg(0));
+                    current_sp = current_fp;
+                }
             } else {
                 int return_addr_reg = get_new_register();
                 emit_operation(ASM_LW, reg(return_addr_reg), reg(FRAME_POINTER), num(1));
@@ -726,6 +742,36 @@ static void emit_sw_write_ram(){
     emit_lib_func_end();
 }
 
+static void emit_sw_run_process(){
+
+    /*********************** Funcao swRunProcess *********************/
+    /*************************** void swRunProcess(void) ***************************/
+    /* Salta para o processo em PROCESS_ENTRY_ADDRESS como se fosse uma chamada de
+     * funcao. Quando o main do processo (compilado com -r) retorna, o FP do SO e
+     * restaurado e o epilogo padrao devolve o controle a quem chamou. */
+
+    emit_lib_func_start("swRunProcess", NULL, 0);
+
+    //------------- Corpo em Assembly da função -----------------//
+
+    /* guarda o FP do frame de swRunProcess (o processo perde o dele) */
+    emit_operation(ASM_ADD, reg(SAVED_FP_REGISTER), reg(FRAME_POINTER), reg(0));
+
+    /* JAL: grava PC+1 em R31; o prologue do main do processo salva em [FP+1].
+     * O bin_gen soma compilation_base_address ao alvo, entao subtraimos aqui. */
+    call_target[call_count] = PROCESS_ENTRY_ADDRESS - compilation_base_address;
+    emit_operation(ASM_JAL, num(0), num(0), num(call_count));
+    operation_list[current_list_position-1].msg = strdup("process");
+    call_count++;
+
+    /* de volta do processo: restaura o FP */
+    emit_operation(ASM_ADD, reg(FRAME_POINTER), reg(SAVED_FP_REGISTER), reg(0));
+
+    //-----------------------------------------------------------//
+
+    emit_lib_func_end();
+}
+
 
 void asm_gen(struct QuadrupleList* list)
 {
@@ -753,6 +799,7 @@ void asm_gen(struct QuadrupleList* list)
         emit_sw_jump();
         emit_sw_read_ram();
         emit_sw_write_ram();
+        emit_sw_run_process();
     }
     emit_output_function();
     emit_input_function();

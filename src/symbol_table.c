@@ -118,7 +118,7 @@ HashTable* create_table(){
     insert_item(temp, "swJump", "global", 0, FUNC, VOID_EXP, 1);
     insert_item(temp, "swReadRam", "global", 0, FUNC, INT_EXP, 1);
     insert_item(temp, "swWriteRam", "global", 0, FUNC, VOID_EXP, 2);
-
+    insert_item(temp, "swRunProcess", "global", 0, FUNC, VOID_EXP, 0);
 
     return temp;
 }

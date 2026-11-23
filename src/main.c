@@ -22,6 +22,7 @@ extern struct QuadrupleList* quadList;
 int compilation_base_address;
 int ram_base_address;
 int emit_low_level_lib;
+int emit_return_mode;
 extern AsmOperation operation_list[];
 extern int current_list_position;
 extern int label_position[];
@@ -51,6 +52,7 @@ int main(int argc, char *argv[]){
     quadList = init_list();
     compilation_base_address = 0;
     ram_base_address = 0;
+    emit_return_mode;
 
     if(argc < 2) {
         printf("Uso do programa: %s <arquivo_de_leitura> <-l -> uso do flex>\n", argv[0]);
@@ -80,6 +82,9 @@ int main(int argc, char *argv[]){
         else if(strcmp(argv[i], "--data_base_address") == 0 || strcmp(argv[i], "-d") == 0){
             ram_base_address = strtol(argv[i + 1], NULL, 16);
             i++;
+        }
+        else if(strcmp(argv[i], "--return_mode") == 0 || strcmp(argv[i], "-r") == 0){
+            emit_return_mode = 1;
         }
     }
 
